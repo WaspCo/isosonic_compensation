@@ -163,7 +163,7 @@ int main (int argc, char *argv[])
               output_L, output_R, dft_mem_L, dft_mem_R, level);
 
             count = data_write(&to_read, &header, output_L, output_R, output);
-            cumulative_write += count;
+            cumulative_write += (count/2);
 
             // Overlapp-add, rewind pointer of offset bytes
             long int input_p = ftell(input);
