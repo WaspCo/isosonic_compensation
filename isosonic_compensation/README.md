@@ -1,10 +1,10 @@
 # Isosonic Compensation
 
-The program currently support 16bits PCM .wav file with every sample rate.
+The program currently support 16bits PCM .wav file with any sample rate.
 Listening level of 80dB SPL and +, there will be no compensation.
 Listening level lower than 80dB SPL, there will be a compensation.
 For now, there are good results for listening levels between 60 and 80 dB SPL.
-The transfer function set need to be improved (and extreme values limited) to avoid distortion.
+The transfer function set needs to be improved (and extreme values limited) to avoid distortion.
 
 
 # Compilation et Execution (FFTW3 & gcc required)
