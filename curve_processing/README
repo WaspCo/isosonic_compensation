@@ -1,0 +1,29 @@
+--- Création de fonctions de transfert pour compensation des courbes isosoniques ---
+
+
+----- Commande de demo -----
+cd ../
+reset && rm -fr carve/* && ./curve_process && ./gnuplot.sh
+// Bien effacer le répertoire avant de lancer le code ! Sinon les txts s'ajoutent
+
+
+----- Notes ----
+
+=> Gnuplot n'apprécie que les csv sous forme de colones, il faut donc transposer tout les csv ...
+	=> csvtool transpose input.csv > output.csv
+
+plot for [i=1:100] '/home/waspco/Bureau/Dropbox/DE_DSP/Software/Curve_Processing/data/export/*************.txt' using 0:(column(i)) with lines
+
+set datafile separator  ","
+set xrange [0:30]
+set yrange [0:130]
+unset key
+
+=> curve_process.h exporte directement en interne les .txt dans carve/
+=> Le script gnuplot.sh automatise la création des graphiques à partir des .txt vers carve/
+
+
+
+
+
+
