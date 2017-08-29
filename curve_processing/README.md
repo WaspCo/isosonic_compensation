@@ -3,7 +3,6 @@
 
 # Demo
 
-cd ../
 reset && rm -fr carve/* && ./curve_process && ./gnuplot.sh
 
 => Erasing the content of carve/ is necessary for the .csv not to concatenate
