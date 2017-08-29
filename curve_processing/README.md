@@ -1,4 +1,4 @@
-# --- Creation of a transfer function set from the isosonic curves ---
+# Creation of a transfer function set from the isosonic curves
 
 
 # Demo
