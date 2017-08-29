@@ -49,7 +49,7 @@ double circshift(double buffer_L[], double buffer_R[], unsigned int *size){
 }
 
 
-/** Perform a FFT on an array of block
+/** Perform a FFT on an array of samples
  * @param header
  * @param buffer_size, number of block in each buffer
  * @param left input buffer
