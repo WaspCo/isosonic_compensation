@@ -1,39 +1,37 @@
-# Isosonic Compensation
+# isosonic compensation
 
-The program currently support 16bits PCM .wav file with any sample rate.
+The program currently supports 16bits PCM .wav file with any sample rate.
 Listening level of 80dB SPL and +, there will be no compensation.
 Listening level lower than 80dB SPL, there will be a compensation.
 For now, there are good results for listening levels between 60 and 80 dB SPL.
-The transfer function set needs to be improved (and extreme values limited) to avoid distortion.
+The transfer function set needs to be improved (and extreme values limited) to avoid distortions.
 
 
-# Compilation et Execution (FFTW3 & gcc required)
+## Compilation et Execution (FFTW3 & gcc required)
 
-Compilation
+To compile:
 
-=> reset && gcc -Wall main.c gui.c fft.c wave.c loudness.c -lfftw3 -lm -o dsp.bin
+    clear && gcc -Wall main.c gui.c fft.c wave.c loudness.c -lfftw3 -lm -o dsp.bin
 
-Execution
+To execute:
 
-=> reset && ./dsp.bin ../input_file ../output_file *buffer_size* *listening_level*
+    clear && ./dsp.bin [input_file] [output_file] [buffer_size] [listening_level]
 
-A buffer size of 4096 and a listening level of 80 is recommended for now.
-
-The transfer function set is a .csv file that should remain in the root directory of the program.
+A buffer size of 4096 is recommended. The transfer function set is a .csv file that is assumed to be in the root directory of the program.
 
 
-# Simplified flowchart
+## Flow
 
-- Input parameters
-- Header read/write
-- Processing loop
-  - Data read
+- input parameters
+- .wav header read/write
+- processing loop
+  - data read
     - circshift
     - fft r2c
     - complex product with the transfer function
     - ifft c2r
     - circshift
-  - Data write
-- Update file size
-- Free the memory
+  - data write
+- update file size
+- free memory
 

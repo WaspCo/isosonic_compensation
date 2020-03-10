@@ -26,7 +26,7 @@
 #include "loudness.h"
 #include "wave.h"
 
-/** Linear interpolation with t parameter
+/** linear interpolation with t parameter
  * @param first value (float)
  * @param second value (float)
  * @param precision between 0 & 1 (float)
@@ -38,7 +38,7 @@ float linear(float *in, float *out, double *precision){
   return interpol;
 }
 
-/** Load the isophonic curves file at program root directory
+/** Load the isophonic curve file located in the root directory
  * @param ptr to isophonic curves file
  * @param c_matrice, isophonic curves destination
  * @param c_temp, isophonic curves before processing
@@ -46,43 +46,47 @@ float linear(float *in, float *out, double *precision){
  * @return integer
  */
 int load_isophonic(FILE* iso_file, struct data *c_matrice, struct data *c_temp, unsigned int *buffer_size){
+
   int i = 0, j = 0;
   char b1[2] = {'\0'};
   char b2[20] = {'\0'};
 
+  // parse csv file
   while ( fread(b1, 1, 1, iso_file) == 1 ){
 
     if((j == 89) && (strcmp( &b1[0], ",") == 0)) {
 
-      if(i == 31){  // End of file
+      if(i == 31){  // end of file
         sscanf(b2, "%f", &(c_temp->mtdt[j]));
         b2[0] = '\0';
         b1[0] = '\0';
-        }
+      }
 
-      else {  // End of line
+      else {  // end of line
         sscanf(b2, "%f", &(c_temp->c[i][j]));
-        fread(b1, 1, 1, iso_file);  // Eating the back to line
+        fread(b1, 1, 1, iso_file);  // eating the back to line
         b2[0] = '\0';
         b1[0] = '\0';
         i++;
-        j = 0;}
-    }  // Next line
+        j = 0;
+      }
 
-    else if(strcmp( &b1[0], ",") == 0) {
+    } else if(strcmp( &b1[0], ",") == 0) { // go to next line
 
-      if(i==31){ sscanf(b2, "%f", &(c_temp->mtdt[j]));}  // mtdt save
+      if(i==31){ sscanf(b2, "%f", &(c_temp->mtdt[j]));}  // metadata save
       else { sscanf(b2, "%f", &(c_temp->c[i][j]));}  // data save
       b2[0] = '\0';
       b1[0] = '\0';
-      j++;} // Next Column
+      j++;
 
-    else {
-    strcat(b2, b1); // Add character to the string
-    b1[0] = '\0';}
+    } else { // next column
+
+      strcat(b2, b1);
+      b1[0] = '\0';
+    }
   }
 
-  // Convert 1/3octave to linear && buffer scaling
+  // convert 1/3octave to linear && buffer scaling
   double q = 19980.0 / ((*buffer_size*2)-1);
   double pre = 0.0;
   double n = 0.0;
@@ -128,11 +132,13 @@ int load_isophonic(FILE* iso_file, struct data *c_matrice, struct data *c_temp, 
         k++;
         pre += n;
       }
-    pre = pre - 1.0; // Error spreading
+      pre = pre - 1.0; // error spreading
     }
+
     k = 0;
     pre = 0;
   }
+
   for(int j = 0; j<90; j++) { c_matrice->mtdt[j] = c_temp->mtdt[j]; }
 
 
@@ -162,32 +168,34 @@ return 1;
 
 
 /** Get dbFullScale value out of sample value
+ * This is a draft, not used for now
  * @param header informations
  * @param buffer_size
  * @param left channel, buffer_size array
  * @param right channel, buffer_size array
  * @return float
  */
-float get_db(Header *header, unsigned int *buffer_size, int64_t left[], int64_t right[]){
+/* float get_db(Header *header, unsigned int *buffer_size, int64_t left[], int64_t right[]){
   unsigned int i = 0;
   float dbfs = 0;  //From -128 to 0dbfs
   double pmoy = 0;
   double pmax = 0;
 
-  pmax = maxint(header->bits_per_sample); //Max positive range of sample
+  pmax = maxint(header->bits_per_sample); // max positive range of sample
 
-  for (i=0; i < *buffer_size; i++){ //Buffer size of 4096 here
-    pmoy += pow(left[i], 2);  //Just the left channel for now
+  for (i=0; i < *buffer_size; i++){ 
+    pmoy += pow(left[i], 2);  // compute on left channel only
   }
   pmoy = sqrt( pmoy / *buffer_size);
   dbfs = 20 * log10( pmoy / (pmax));
 
   printf("Buffer of %d\n", *buffer_size);
+  
   return dbfs;
-} // This function is not used for now, but will be useful in the future
+} */
 
 
-/** Compensation of the isosonic curves
+/** apply compensation to spectrum
  * @param header informations
  * @param buffer_size
  * @param left channel spectrum
@@ -206,43 +214,35 @@ float get_db(Header *header, unsigned int *buffer_size, int64_t left[], int64_t 
   int middle = (first + last)/2;
   int curve2apply = 0;
 
-  while(first <= last) {  //Binary search of the right curve to apply
+  while(first <= last){ // binary search of the right curve to apply
+
     if(level > (c_matrice->mtdt[middle] + 0.5)) { first = middle + 1;}
     else if(level == (c_matrice->mtdt[middle] + 0.5)) { break; }
     else { last = middle - 1; }
+
     middle = (first + last) / 2;
   }
+
   curve2apply = middle + 1;
-  //printf("\ncurve2apply = %d\n", curve2apply);
 
   int i = 0;
   float to_apply = 0;
 
-  for ( i = 0; i < (*buffer_size/2 + 1); i++ )
-  {
-    // A décommenter pour appliquer la correction
+  // apply correction to samples
+  for ( i = 0; i < (*buffer_size/2 + 1); i++ ){
+
+    // correction in dB SPL to linear scale
     to_apply = c_matrice->c[i][curve2apply] * 8;
     to_apply = pow(10,c_matrice->c[i][curve2apply]/20);
 
-    //to_apply = 2; // Coef à 1, pas de correction, >1 on amplifie, <1 on atténue
+    // apply to left channel
+    dft_freq_conv_L[i][0] = dft_freq_L[i][0] * to_apply;
+    dft_freq_conv_R[i][0] = dft_freq_R[i][0] * to_apply;
 
-      //real component
-      /*dft_freq_conv_L[i][0] = dft_freq_L[i][0] * to_apply - dft_freq_L[i][1] * 0;
-      dft_freq_conv_R[i][0] = dft_freq_R[i][0] * to_apply - dft_freq_R[i][1] * 0;
-      //imaginary component
-      dft_freq_conv_L[i][1] = dft_freq_L[i][0] * 0 + dft_freq_L[i][1] * to_apply;
-      dft_freq_conv_R[i][1] = dft_freq_R[i][0] * 0 + dft_freq_R[i][1] * to_apply;*/
-
-      dft_freq_conv_L[i][0] = dft_freq_L[i][0] * to_apply;
-      dft_freq_conv_R[i][0] = dft_freq_R[i][0] * to_apply;
-      //Imaginary component
-      dft_freq_conv_L[i][1] = dft_freq_L[i][1] * to_apply;
-      dft_freq_conv_R[i][1] = dft_freq_R[i][1] * to_apply;
-
-  /* Note : On doit en théorie réaliser un produit complexe, mais comme la phase (partie imaginaire) du filtre est nulle,
-   * le calcul se simplifie
-  */
-
+    // apply to right channel
+    dft_freq_conv_L[i][1] = dft_freq_L[i][1] * to_apply;
+    dft_freq_conv_R[i][1] = dft_freq_R[i][1] * to_apply;
   }
+
   return 1;
 }

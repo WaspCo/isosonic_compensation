@@ -8,27 +8,28 @@
 typedef
 struct Header
 {
-    unsigned char riff[4]; // Is it PCM ? Then ok
-    unsigned int file_size; // Binary size
-    unsigned char wave[4]; // Is it a wave file ? Then ok
-    char info[256]; //Metadata storing, untouched
-    char info2parse[256]; //Metadata storing
-    unsigned int info_len;  //The length of the metadata in bytes
+    unsigned char riff[4]; // is it PCM ? Then ok
+    unsigned int file_size; // binary size
+    unsigned char wave[4]; // is it a wave file ? Then ok
+    char info[256]; // metadata storing, untouched
+    char info2parse[256]; // metadata storing
+    unsigned int info_len;  // the length of the metadata in bytes
     unsigned char fmt_chunk_marker [4]; // FMT flag
-    unsigned int chunk_size; // Chunk size
-    unsigned int type_format; // Encoding type (we want PCM)
-    unsigned int nb_channel; //Number of channel
-    unsigned int sample_rate; //Sampling frequency
-    unsigned int byte_rate; //Bitrate
+    unsigned int chunk_size; // chunk size
+    unsigned int type_format; // encoding type (we want PCM)
+    unsigned int nb_channel; // number of channel
+    unsigned int sample_rate; // sampling frequency
+    unsigned int byte_rate; // bitrate
     unsigned int block_size; // (nb_channel * chunk_size / 8)
-    unsigned int bits_per_sample; //8, 16, 24, 32 ...
-    unsigned char data_chunk_header [4]; //DATA or FLLR string, data beginning
+    unsigned int bits_per_sample; // 8, 16, 24, 32 ...
+    unsigned char data_chunk_header [4]; // DATA or FLLR string, data beginning
     unsigned int extra_param_len;
     unsigned int data_size; // (nb_sample * nb_channel * bits_per_sample / 8)
-    unsigned long nb_block;  //Number of samples
-    unsigned long size_of_each_sample; // All Channel sample size
+    unsigned long nb_block;  // number of samples
+    unsigned long size_of_each_sample; // all Channel sample size
     float duration_in_seconds;
 }
+
 Header;
 
 void display_header(Header *header);

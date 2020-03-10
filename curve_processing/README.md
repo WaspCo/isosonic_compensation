@@ -1,21 +1,15 @@
-# Creation of a transfer function set from the isosonic curves
+# curve processing
+
+Create a set of transfer functions from the Fletcher-Munson's curves.
+
+	clear && rm -fr carve/* && ./curve_process && ./gnuplot.sh
+
+Erasing the content of directory **carve/** is necessary to avoid the concatenation of the .csv files.
 
 
-# Demo
+## Note
 
-reset && rm -fr carve/* && ./curve_process && ./gnuplot.sh
-
-=> Erasing the content of carve/ is necessary for the .csv not to concatenate
-
-
-# Note
-
-=> Gnuplot likes column dataset, so a transpose can be necessary ...
-	=> csvtool transpose input.csv > output.csv
-=> curve_process.c export .csv files in carve/ directory
-=> gnuplot.sh is an automated script which creates plots of the .csv in carve/ directory
-
-
-
-
-
+- **gnuplot** likes column dataset, so a transpose might be necessary.
+- Use **csvtool** to transpose the **input.csv** file.
+- **curve_process.c** exports .csv files at each step of the processing in **carve/** directory.
+- **gnuplot.sh** is an automated script that creates plots of provided .csv file in **carve/** directory.

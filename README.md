@@ -1,15 +1,15 @@
 # isosonic compensation
 ~ A dynamic audio compensation of the isosonic curves ~
 
-## Introduction
-
 This is my bachelor's degree final project.
+
+## Introduction
 
 Most audio materials are edited, mixed and eventually mastered by a sound engineer at a standard level of approximately 80dB SPL (typically at 1 meter). This level is high enough to allow the sound engineer to perceive the whole dynamic range and details of the audio material while remaining low enough to prevent any hearing damages. Of all the possible ways a sound engineer could shape the sound, balancing the frequency spectrum correctly is of great importance, and a difference of 3dB on a particular frequency band might greatly influence the result. 
 
 Final audio materials are played at different levels depending on the context. In a night club, it might be 110dB SPL. Using headphones, probably 70dB SPL. At home or at the office as an audio background however, it will range from 20db SPL to 60db SPL. We know that the human ear does not have a flat spectral sensitivity. We usually approximate our sensitivity to relative intensities and frequencies as logarithmic, but it is more complex than that. Equal-loudness contour curves were created to characterize precisely the human ear sensitivity to relative frequencies. The most famous is the [Fletcher-Munson](https://en.wikipedia.org/wiki/Equal-loudness_contour) set of curves determined experimentally by Harvey Fletcher and Wilden A. Munson in 1933.
 
-<p style="width:500px; margin: auto;" >
+<p style="width:400px; margin: auto;" >
   <img src="./asset/fletcher_munson.png">
 </p>
 
@@ -20,7 +20,7 @@ Final audio materials are played at different levels depending on the context. I
 
 A dynamic compensation of the isosonic curves is proposed. We proved the feasibility of our approach using a simple C program. Accepting an uncompressed .wav audio file as input and listening level, this program outputs an audio file whose spectrum has been corrected. Using a fast Fourier transform (FFTW library) and an appropriate sliding window, we take the product of the audio file's spectrum with an appropriate transfer function. This is known to be much faster than convoluting the signal with the inverse Fourier transform of the transfer function.
 
-<p style="width:600px; margin: auto;" >
+<p style="width:500px; margin: auto;" >
   <img src="./asset/fourier_convolution.png">
 </p>
 
