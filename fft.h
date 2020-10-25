@@ -11,6 +11,7 @@
 #include <fftw3.h>
 
 #include "loudness.h"
+#include "isosonic.h"
 
 double circshift(
     double buffer_L[],
@@ -24,8 +25,9 @@ double fft(
     int64_t input_1_R[],
     int64_t output_L[],
     int64_t output_R[],
-    float *dft_mem_L,
-    float *dft_mem_R,
+    double *dft_mem_L,
+    double *dft_mem_R,
+    struct transfer_function *curve_processed,
     int level);
 
 #endif // _FFT_H_ 1

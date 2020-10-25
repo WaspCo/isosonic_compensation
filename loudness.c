@@ -23,289 +23,10 @@
 
 #include <fftw3.h>
 
+#include "isosonic.h"
 #include "loudness.h"
-#include "wave.h"
+#include "wav.h"
 
-/** linear interpolation with t parameter
- * @param first value (float)
- * @param second value (float)
- * @param precision between 0 & 1 (float)
- * @return result (float)
- */
-float linear(float *in, float *out, double *precision)
-{
-
-    float interpol = 0;
-
-    interpol = (((1 - (*precision)) * (*in)) + ((*precision) * (*out)));
-
-    return interpol;
-}
-
-/** Load the isophonic curve file located in the root directory
- * @param ptr to isophonic curves file
- * @param curve_processed, isophonic curves destination
- * @param curve_raw, isophonic curves before processing
- * @param buffer_size
- * @return integer
- */
-int load_isophonic(
-    FILE *iso_file,
-    struct data *curve_processed,
-    struct data *curve_raw,
-    unsigned int *buffer_size)
-{
-
-    int i = 0, j = 0;
-    char b1[2] = {'\0'};
-    char b2[20] = {'\0'};
-
-    // parse csv file
-    while (fread(b1, 1, 1, iso_file) == 1)
-    {
-
-        if ((j == 89) && (strcmp(&b1[0], ",") == 0))
-        {
-
-            if (i == 31)
-            { // end of file
-                sscanf(b2, "%f", &(curve_raw->metadata[j]));
-                b2[0] = '\0';
-                b1[0] = '\0';
-            }
-
-            else
-            { // end of line
-                sscanf(b2, "%f", &(curve_raw->data[i][j]));
-                fread(b1, 1, 1, iso_file); // eating the back to line
-                b2[0] = '\0';
-                b1[0] = '\0';
-                i++;
-                j = 0;
-            }
-        }
-        else if (strcmp(&b1[0], ",") == 0)
-        { // go to next line
-
-            if (i == 31)
-            { // metadata save
-                sscanf(b2, "%f", &(curve_raw->metadata[j]));
-            }
-            else
-            { // data save
-                sscanf(b2, "%f", &(curve_raw->data[i][j]));
-            }
-            b2[0] = '\0';
-            b1[0] = '\0';
-            j++;
-        }
-        else
-        { // next column
-
-            strcat(b2, b1);
-            b1[0] = '\0';
-        }
-    }
-
-    // convert 1/3octave to linear && buffer scaling
-    double q = 19980.0 / ((*buffer_size * 2) - 1);
-    double pre = 0.0;
-    double n = 0.0;
-    int k = 0, one = 0, two = 0;
-
-    for (int j = 0; j < 90; j++)
-    {
-        for (int i = 0; i < 29; i++)
-        {
-
-            if (i == 0)
-            {
-                one = 20;
-                two = 25;
-            }
-            else if (i == 1)
-            {
-                one = 25;
-                two = 31.5;
-            }
-            else if (i == 2)
-            {
-                one = 31.5;
-                two = 40;
-            }
-            else if (i == 3)
-            {
-                one = 40;
-                two = 50;
-            }
-            else if (i == 4)
-            {
-                one = 50;
-                two = 63;
-            }
-            else if (i == 5)
-            {
-                one = 63;
-                two = 80;
-            }
-            else if (i == 6)
-            {
-                one = 80;
-                two = 100;
-            }
-            else if (i == 7)
-            {
-                one = 100;
-                two = 125;
-            }
-            else if (i == 8)
-            {
-                one = 125;
-                two = 160;
-            }
-            else if (i == 9)
-            {
-                one = 160;
-                two = 200;
-            }
-            else if (i == 10)
-            {
-                one = 200;
-                two = 250;
-            }
-            else if (i == 11)
-            {
-                one = 250;
-                two = 315;
-            }
-            else if (i == 12)
-            {
-                one = 315;
-                two = 400;
-            }
-            else if (i == 13)
-            {
-                one = 400;
-                two = 500;
-            }
-            else if (i == 14)
-            {
-                one = 500;
-                two = 630;
-            }
-            else if (i == 15)
-            {
-                one = 630;
-                two = 800;
-            }
-            else if (i == 16)
-            {
-                one = 800;
-                two = 1000;
-            }
-            else if (i == 17)
-            {
-                one = 1000;
-                two = 1250;
-            }
-            else if (i == 18)
-            {
-                one = 1250;
-                two = 1600;
-            }
-            else if (i == 19)
-            {
-                one = 2000;
-                two = 2500;
-            }
-            else if (i == 20)
-            {
-                one = 2500;
-                two = 3150;
-            }
-            else if (i == 21)
-            {
-                one = 3150;
-                two = 4000;
-            }
-            else if (i == 22)
-            {
-                one = 4000;
-                two = 5000;
-            }
-            else if (i == 23)
-            {
-                one = 5000;
-                two = 6300;
-            }
-            else if (i == 24)
-            {
-                one = 6300;
-                two = 8000;
-            }
-            else if (i == 25)
-            {
-                one = 8000;
-                two = 10000;
-            }
-            else if (i == 26)
-            {
-                one = 10000;
-                two = 12500;
-            }
-            else if (i == 27)
-            {
-                one = 12500;
-                two = 16000;
-            }
-            else if (i == 28)
-            {
-                one = 16000;
-                two = 20000;
-            }
-
-            n = 1.0 / ((two - one) / q);
-
-            while (pre < 1)
-            {
-                curve_processed->data[k][j] = pow(10.0, linear(&curve_raw->data[i][j], &curve_raw->data[i + 1][j], &pre) / 20.0);
-                k++;
-                pre += n;
-            }
-            pre = pre - 1.0; // spread error
-        }
-
-        k = 0;
-        pre = 0;
-    }
-
-    for (int j = 0; j < 90; j++)
-    {
-        curve_processed->metadata[j] = curve_raw->metadata[j];
-    }
-
-    //Pour tester la bonne lecture du fichier
-    /*FILE * test = fopen("test.csv", "w");
-    for (i = 0; i < (*buffer_size*2) ; i++)
-    {
-        for (j = 0; j < 90; j++)
-        {
-        fprintf(test, "%f,", curve_processed->c[i][j]);     // Export .csv
-        }
-        fprintf(test,"\n");
-    }
-
-    for (j = 0; j < 90; j++)
-    {
-        fprintf(test,"%f,", curve_processed->mtdt[j]);
-    }
-    fclose(test);*/
-
-    /* Sans calibration, nous assumerons qu'un niveau d'écoute de 80dB SPL
-        * correspond à un niveau interne de -18dBSPL*/
-
-    return 1;
-}
 
 /** Get dbFullScale value out of sample value
  * This is a draft, not used for now
@@ -352,7 +73,7 @@ int loudness(
     fftw_complex dft_freq_R[],
     fftw_complex dft_freq_conv_L[],
     fftw_complex dft_freq_conv_R[],
-    struct data *curve_processed,
+    struct transfer_function *curve_processed,
     int level)
 {
 
@@ -372,10 +93,7 @@ int loudness(
         {
             break;
         }
-        else
-        {
-            last = middle - 1;
-        }
+        else last = middle - 1;
 
         middle = (first + last) / 2;
     }
@@ -388,7 +106,6 @@ int loudness(
     // apply correction to samples
     for (i = 0; i < (*buffer_size / 2 + 1); i++)
     {
-
         // correction in dB SPL to linear scale
         to_apply = curve_processed->data[i][curve2apply] * 8;
         to_apply = pow(10, curve_processed->data[i][curve2apply] / 20);
@@ -402,5 +119,5 @@ int loudness(
         dft_freq_conv_R[i][1] = dft_freq_R[i][1] * to_apply;
     }
 
-    return 1;
+    return 0;
 }

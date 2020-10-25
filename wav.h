@@ -1,5 +1,5 @@
-#ifndef _WAVE_H_
-#define _WAVE_H_ 1
+#ifndef WAVE_H
+#define WAVE_H 1
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -57,4 +57,4 @@ int buffer_to_signed(char *buffer, size_t size);
 void unsigned_to_buffer(unsigned int x, unsigned char *buffer, size_t size);
 void signed_to_buffer(int x, char *buffer, size_t size);
 
-#endif // _WAVE_H_ 1
+#endif // WAVE_H 1

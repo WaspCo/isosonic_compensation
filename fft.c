@@ -19,6 +19,7 @@
 
 #include "fft.h"
 #include "loudness.h"
+#include "isosonic.h"
 
 #define REAL 0
 #define IMAG 1
@@ -73,8 +74,9 @@ double fft(
     int64_t input_R[],
     int64_t output_L[],
     int64_t output_R[],
-    float *dft_mem_L,
-    float *dft_mem_R,
+    double *dft_mem_L,
+    double *dft_mem_R,
+    struct transfer_function *curve_processed,
     int level)
 {
 
@@ -135,7 +137,7 @@ double fft(
     fftw_execute(right_plan_forward);
 
     // apply compensation
-    loudness(header, buffer_size, dft_freq_L, dft_freq_R, dft_freq_conv_L, dft_freq_conv_R, &curve_processed, level);
+    loudness(header, buffer_size, dft_freq_L, dft_freq_R, dft_freq_conv_L, dft_freq_conv_R, curve_processed, level);
 
     // plan backward fft and apply to left channel
     left_plan_backward = fftw_plan_dft_c2r_1d(

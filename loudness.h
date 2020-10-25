@@ -1,5 +1,5 @@
-#ifndef _LOUDNESS_H_
-#define _LOUDNESS_H_ 1
+#ifndef LOUDNESS_H
+#define LOUDNESS_H 1
 
 #include <stdio.h>
 #include <unistd.h>
@@ -10,27 +10,13 @@
 #include <math.h>
 #include <fftw3.h>
 
-#include "wave.h"
+#include "wav.h"
 
-struct data
-{                       // isophonic Curves data structure
-    float **data;       // the curve data
-    float metadata[90]; // curve metadata
-};
-
-struct data curve_raw;
-struct data curve_processed;
-
-float linear(
-    float *in,
-    float *out,
-    double *precision);
-
-int load_isophonic(
-    FILE *iso_file,
-    struct data *curve_raw,
-    struct data *curve_processed,
-    unsigned int *buffer_size);
+struct transfer_function
+{ // Contient le spectre de la réponse impulsionelle
+    double **data;
+    double metadata[90];
+}; // Les metadatas sont le niveau d'origine du spectre à 1kH.
 
 int loudness(
     Header *header,
@@ -39,9 +25,9 @@ int loudness(
     fftw_complex dft_freq_R[],
     fftw_complex dft_freq_conv_L[],
     fftw_complex dft_freq_conv_R[],
-    struct data *curve_processed,
+    struct transfer_function *curve_processed,
     int level);
 
 // float get_db(Header *header, unsigned int *buffer_size, int64_t left[], int64_t right[]);
 
-#endif // _LOUDNESS_H_ 1
+#endif // LOUDNESS_H 1

@@ -23,17 +23,16 @@
 #include <fftw3.h>
 #include <time.h>
 
-#include "wave.h"
+#include "wav.h"
 #include "fft.h"
+#include "isosonic.h"
+#include "loudness.h"
 
 int64_t *allocation(size_t size)
 {
     int64_t *buffer = (int64_t *)malloc(size * sizeof(int64_t));
 
-    if (buffer)
-    { // filling buffer with zeros
-        memset(buffer, 0, size * sizeof(int64_t));
-    }
+    if (buffer) memset(buffer, 0, size * sizeof(int64_t));
 
     return buffer;
 }
@@ -56,23 +55,16 @@ int main(int argc, char *argv[])
     }
 
     FILE *input = fopen(argv[1], "r");
-    if (input == NULL)
+    if (!input)
     {
         fprintf(stderr, "Error while opening the input file. (%s)\n", argv[1]);
         exit(1);
     }
 
     FILE *output = fopen(argv[2], "w");
-    if (output == NULL)
+    if (!output)
     {
         fprintf(stderr, "Error while allocating the output file. (%s)\n", argv[2]);
-        exit(1);
-    }
-
-    FILE *iso_file = fopen("curve_processing/curve_processed.csv", "r");
-    if (iso_file == NULL)
-    {
-        fprintf(stderr, "Error while loading the isophonic curves data.\n");
         exit(1);
     }
 
@@ -99,22 +91,34 @@ int main(int argc, char *argv[])
 
     // allocate isosonic curves on the heap and load
 
+    FILE *iso_file = NULL;
+    iso_file = fopen("curve_processed.csv", "r");
+
+    if (!iso_file)
+    {
+        iso_file = process_isosonic_curve();
+
+        if (!iso_file)
+        {
+            fprintf(stderr, "Error while processing the isosonic curves.");
+            exit(1);
+        }
+    }
+
 #include "loudness.h"
 
-    curve_raw.data = (float **)malloc(31 * sizeof(float *));
-    curve_processed.data = (float **)malloc((2 * buffer_size) * sizeof(float *));
+    struct transfer_function transfer_function;
 
-    for (int i = 0; i < 31; i++)
-    {
-        curve_raw.data[i] = (float *)malloc(90 * sizeof(float));
-    }
+    transfer_function.data = (double**)malloc((2*buffer_size)*sizeof(double*));
 
     for (int i = 0; i < (2 * buffer_size); i++)
     {
-        curve_processed.data[i] = (float *)malloc(90 * sizeof(float));
+        transfer_function.data[i] = (double*)malloc(90*sizeof(double));
     }
 
-    load_isophonic(iso_file, &curve_processed, &curve_raw, &buffer_size);
+    for (int i = 0; i < 90; i++) transfer_function.metadata[i] = 0.;
+
+    load_isophonic(iso_file, &transfer_function, &buffer_size);
 
     ////////////////////////////////////////////////////////////////////////////
     // 2) working buffers allocation ///////////////////////////////////////////
@@ -128,15 +132,15 @@ int main(int argc, char *argv[])
     int64_t *output_R = allocation(buffer_size);
 
     // temp storage for P2
-    float *dft_mem_L;
-    float *dft_mem_R;
-    dft_mem_L = malloc(sizeof(float) * (buffer_size));
-    dft_mem_R = malloc(sizeof(float) * (buffer_size));
+    double *dft_mem_L;
+    double *dft_mem_R;
+    dft_mem_L = malloc(sizeof(double) * (buffer_size));
+    dft_mem_R = malloc(sizeof(double) * (buffer_size));
 
     if (input_L == NULL || input_R == NULL || output_L == NULL || output_R == NULL)
     {
         fprintf(stderr, "Error while allocating the buffers.\n");
-        return 1;
+        exit(1);
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -152,26 +156,23 @@ int main(int argc, char *argv[])
     unsigned int nb_lecture = (header.nb_block / (buffer_size / 2));
 
     // get the incomplete last buffer if needed
-    if (header.nb_block % (buffer_size / 2) > 0)
-    {
-        nb_lecture += 1;
-    }
+    if (header.nb_block % (buffer_size / 2) > 0) nb_lecture += 1;
 
     // hold on just a second
     char choice[3] = {0};
-    printf("Go ? (y/n)\t");
+    printf("Go ? (y/Y/n/N)\t");
     scanf("%c", choice);
+    if (choice[0] == 'n' || choice[0] == 'N') exit(1);
 
     printf("\n------------------------------------ Processing has started .....\n\n");
 
-    unsigned int offset = (buffer_size / 2) * header.block_size;
+    unsigned int offset = (buffer_size/2) * header.block_size;
 
     size_t cumulative_read = 0, cumulative_write = 0;
 
     // main processing loop
     for (unsigned int i = 0; i < (nb_lecture); i++)
     {
-
         size_t remaining = (header.nb_block) - (cumulative_read);
 
         printf("------------------------------------ window n° %5u", i);
@@ -186,8 +187,8 @@ int main(int argc, char *argv[])
         cumulative_read += (count / 2);
 
         // apply fft + correction
-        fft(&header, &buffer_size, input_L, input_R,
-            output_L, output_R, dft_mem_L, dft_mem_R, level);
+        fft(&header, &buffer_size, input_L, input_R, output_L, output_R,
+            dft_mem_L, dft_mem_R, &transfer_function, level);
 
         // write back P1 to disk
         count = data_write(&to_read, &header, output_L, output_R, output);
@@ -197,8 +198,7 @@ int main(int argc, char *argv[])
         fseek(input, ftell(input) - offset, SEEK_SET);
     }
 
-    printf("------------------------------------ Alt er vel (^_^) -----------\n");
-
+    printf("Alt er vel (^_^)\n");
     printf("Sample read: %zu\n", cumulative_read);
     printf("Sample writen: %zu\n", cumulative_write);
 
@@ -219,18 +219,6 @@ int main(int argc, char *argv[])
     fwrite(buffer, 4, 1, output);
 
     // free the memory !
-
-    for (int i = 0; i < 31; i++)
-    {
-        free(curve_raw.data[i]);
-    }
-    free(curve_raw.data);
-
-    for (int i = 0; i < (2 * buffer_size); i++)
-    {
-        free(curve_processed.data[i]);
-    }
-    free(curve_processed.data);
 
     free(input_L);
     free(input_R);

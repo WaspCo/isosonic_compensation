@@ -27,7 +27,7 @@
 #include <string.h>   // String handling (strcpy, strncpy, memcmp, memset)
 #include <unistd.h>   // POSIX operating system API
 
-#include "wave.h"
+#include "wav.h"
 #include "loudness.h"
 
 /** Translate raw buffer (little endian bytes) to integer value
@@ -172,17 +172,17 @@ int header_read(Header *header, FILE *input)
     if (fread(buffer, 4, 1, input) != 1)
     {
         fprintf(stderr, "ERROR: reading RIFF identifier failed.\n");
-        return 0;
+        return 1;
     }
     if (memcmp(buffer, "RIFF", 4) != 0)
     {
         fprintf(stderr, "ERROR: RIFF file required.\n");
-        return 0;
+        return 1;
     }
     if (fread(buffer, 4, 1, input) != 1)
     {
         fprintf(stderr, "ERROR: reading RIFF size failed.\n");
-        return 0;
+        return 1;
     }
 
     header->file_size = buffer_to_unsigned(buffer, 4);
@@ -191,12 +191,12 @@ int header_read(Header *header, FILE *input)
     if (fread(buffer, 4, 1, input) != 1)
     {
         fprintf(stderr, "ERROR: reading WAVE format failed.\n");
-        return 0;
+        return 1;
     }
     if (memcmp(buffer, "WAVE", 4) != 0)
     {
         fprintf(stderr, "ERROR: WAVE file required.\n");
-        return 0;
+        return 1;
     }
 
     // parse the possible flags
@@ -213,7 +213,6 @@ int header_read(Header *header, FILE *input)
 
     while ((character = getc(input)) != -1 && charCount < 300)
     {
-
         header->info2parse[charCount] = character;
         header->info[charCount++] = character;
 
@@ -222,18 +221,12 @@ int header_read(Header *header, FILE *input)
 
         // check if we have the right character
         if (character == fmt[nbLetterFound])
-        {
             nbLetterFound++;
-        }
         else
-        {
             nbLetterFound = 0; // else reset
-        }
 
         if (nbLetterFound == countfmt)
-        {
             break;
-        }
     }
 
     // cut the fmt flag and get the right lenght
@@ -256,7 +249,7 @@ int header_read(Header *header, FILE *input)
     if (fread(buffer, 4, 1, input) != 1)
     {
         fprintf(stderr, "ERROR: reading subchunk size failed.\n");
-        return 0;
+        return 1;
     }
 
     header->chunk_size = buffer_to_unsigned(buffer, 4);
@@ -265,7 +258,7 @@ int header_read(Header *header, FILE *input)
     if (fread(buffer, 2, 1, input) != 1)
     {
         fprintf(stderr, "ERROR: reading WAVE encoding failed.\n");
-        return 0;
+        return 1;
     }
 
     header->type_format = buffer_to_unsigned(buffer, 2);
@@ -273,14 +266,14 @@ int header_read(Header *header, FILE *input)
     if (header->type_format != 1)
     {
         fprintf(stderr, "ERROR: Encoding flag is not PCM. This program can't handle compressed audio files.\n");
-        return 0;
+        return 1;
     }
 
     // (22-23) Wave format: number of channels
     if (fread(buffer, 2, 1, input) != 1)
     {
         fprintf(stderr, "ERROR: reading WAVE number of channels failed.\n");
-        return 0;
+        return 1;
     }
 
     header->nb_channel = buffer_to_unsigned(buffer, 2);
@@ -288,14 +281,14 @@ int header_read(Header *header, FILE *input)
     if ((header->nb_channel != 1) && (header->nb_channel != 2))
     {
         fprintf(stderr, "ERROR: This program can only handle 1 or 2 channels.\n");
-        return 0;
+        return 1;
     }
 
     // (24-27) Wave format: sample rate
     if (fread(buffer, 4, 1, input) != 1)
     {
         fprintf(stderr, "ERROR: reading WAVE sample rate failed.\n");
-        return 0;
+        return 1;
     }
 
     header->sample_rate = buffer_to_unsigned(buffer, 4);
@@ -304,7 +297,7 @@ int header_read(Header *header, FILE *input)
     if (fread(buffer, 4, 1, input) != 1)
     {
         fprintf(stderr, "ERROR: reading WAVE byte rate failed.\n");
-        return 0;
+        return 1;
     }
 
     header->byte_rate = buffer_to_unsigned(buffer, 4);
@@ -313,7 +306,7 @@ int header_read(Header *header, FILE *input)
     if (fread(buffer, 2, 1, input) != 1)
     {
         fprintf(stderr, "ERROR: reading WAVE sample block size failed.\n");
-        return 0;
+        return 1;
     }
 
     header->block_size = buffer_to_unsigned(buffer, 2);
@@ -322,7 +315,7 @@ int header_read(Header *header, FILE *input)
     if (fread(buffer, 2, 1, input) != 1)
     {
         fprintf(stderr, "ERROR: reading WAVE bits per sample failed.\n");
-        return 0;
+        return 1;
     }
 
     header->bits_per_sample = buffer_to_unsigned(buffer, 2);
@@ -338,7 +331,7 @@ int header_read(Header *header, FILE *input)
     if (fread(tmp, 1, 1, input) != 1)
     {
         fprintf(stderr, "ERROR: reading data size failed.\n");
-        return 0;
+        return 1;
     }
 
     data[0] = data[1];
@@ -352,7 +345,7 @@ int header_read(Header *header, FILE *input)
         if (fread(tmp, 1, 1, input) != 1)
         {
             fprintf(stderr, "ERROR: reading data size failed.\n");
-            return 0;
+            return 1;
         }
         i++;
 
@@ -371,7 +364,7 @@ int header_read(Header *header, FILE *input)
     if (fread(buffer, 4, 1, input) != 1)
     {
         fprintf(stderr, "ERROR: reading data block size failed.\n");
-        return 0;
+        return 1;
     }
 
     header->data_size = buffer_to_unsigned(buffer, 4);
@@ -414,7 +407,7 @@ int data_read(size_t *to_read,
                 header->nb_channel,
                 header->size_of_each_sample);
 
-        return 0;
+        return 1;
     }
 
     short int data_buffer;
@@ -492,7 +485,7 @@ int header_write(Header *header, FILE *output)
     unsigned_to_buffer(header->data_size, buffer, 4);
     fwrite(buffer, 4, 1, output);
 
-    return 1;
+    return 0;
 }
 
 /** Write Wave file data

@@ -1,9 +1,11 @@
-# isosonic compensation
-~ A dynamic audio compensation of the isosonic curves ~
+# Isosonic Compensation
 
-This is my bachelor's degree final project.
+A dynamic audio compensation of the isosonic curves
+
 
 ## Introduction
+
+This is my bachelor's degree final project.
 
 Most audio materials are edited, mixed and eventually mastered by a sound engineer at a standard level of approximately 80dB SPL (typically at 1 meter). This level is high enough to allow the sound engineer to perceive the whole dynamic range and details of the audio material while remaining low enough to prevent any hearing damages. Of all the possible ways a sound engineer could shape the sound, balancing the frequency spectrum correctly is of great importance, and a difference of 3dB on a particular frequency band might greatly influence the result. 
 
@@ -13,63 +15,48 @@ Final audio materials are played at different levels depending on the context. I
   <img src="./asset/fletcher_munson.png">
 </p>
 
-Final audio materials are played at different levels depending on the context. In a night club, it might be 110dB SPL. Using headphones, probably 70dB SPL. At home or at work as an audio background however, it will range from 20db SPL to 60db SPL. We know that humans do not have a flat spectral sensitivity of frequency against amplitude. We usually approximate our sensitivity to relative intensities and frequencies as logarithmic, but it is more complex than that. Equal-loudness contour curves were created to characterize precisely the human ear sensitivity to relative frequencies. The most famous is the [Fletcher-Munson](https://en.wikipedia.org/wiki/Equal-loudness_contour) set of curves determined experimentally by Harvey Fletcher and Wilden A. Munson in 1933.
+Final audio materials are played at different levels depending on the context. In a night club, it might be 110dB SPL. Using headphones, probably 70dB SPL. At home or at work as an audio background however, it will range from 20db SPL to 60db SPL. We know that humans do not have a flat spectral sensitivity of frequency against amplitude. We usually approximate our sensitivity to relative intensities and frequencies as logarithmic, but it is more complex than that. Equal-loudness contour curves were created to characterize precisely the human ear sensitivity to relative frequencies. The most famous one is the [Fletcher-Munson](https://en.wikipedia.org/wiki/Equal-loudness_contour) set of curves determined experimentally by Harvey Fletcher and Wilden A. Munson in 1933.
 
 
-## Dynamic compensation of the isosonic curves
+## How do I use it ?
 
-A dynamic compensation of the isosonic curves is proposed. We proved the feasibility of our approach using a simple C program. Accepting an uncompressed .wav audio file as input and listening level, this program outputs an audio file whose spectrum has been corrected. Using a fast Fourier transform (FFTW library) and an appropriate sliding window, we take the product of the audio file's spectrum with an appropriate transfer function. This is known to be much faster than convoluting the signal with the inverse Fourier transform of the transfer function.
+You first need to install the development libraries of FFTW3 on your machine. On Debian 10, that would be
+
+```
+sudo apt install libfftw3-dev
+```
+
+then compile by running
+
+```
+make
+```
+
+This produces an executable named `./isosonic_compensation` that should be used as follow
+
+```
+./isosonic_compensation [input_file] [output_file] [window_size] [listening_level]
+```
+
+The different transfer functions can be plotted in folder `/curve` by running
+
+```
+./gnuplot.sh
+```
+
+`window_size` should be a power of two in the range [8-2^16] and `listening_level` must be in the range [40-80] and is expressed in dbSPL. A buffer size of size 4096 is recommended. The program currently supports 16bits PCM .wav file with any sample rate. For now, there are good results are obtained for listening levels between 60 and 80 dB SPL.
+
+
+## How it works
+
+Using a fast Fourier transform (FFTW library) and an appropriate sliding window, we take the product of the audio file's spectrum with an appropriate transfer function. This is known to be much faster than convoluting the signal with the impulse response.
 
 <p style="width:500px; margin: auto;" >
   <img src="./asset/fourier_convolution.png">
 </p>
 
 
-## Results
-
-The correction is applied at different levels on a white noise input file. By analyzing the spectrum of the output file, we observed that the correction was successfully applied to the audio file. However, using a music audio file we observed that the stronger the correction (typically for very low listening levels), the more distortion was added. We believe that the amount of distortion created could be reduced by crafting better transfer functions, and by choosing a smooth window for the Fourier transform. However, distortion is unavoidable when strong equalization is applied to any audio material.
-
-
-## Content
-
-**isosonic_compensation** contains the main program which can read/write a PCM .wav file and compensate the isosonic curves for a specific listening level. **curve_processing** contains a small program that creates a set of transfer functions from the Fletcher & Munson curves. For visualization purposes, **gnuplot** is used to plot the different steps. **sample** contains 3 audio files, and **asset** is for any image used in this readme.
-
-
-## Possible improvements
-
-- Apply Hann windows to remove the windowing artifacts (regular click) and reduce distortion.
-- Normalize the output to -3dB FS max, TruePeak if possible.
-- Improve the quality of the transfer function set.
-- Improve the execution speed by getting rid of fseek() statements.
-
-
-
-
-
-
-# isosonic compensation
-
-The program currently supports 16bits PCM .wav file with any sample rate.
-Listening level of 80dB SPL and +, there will be no compensation.
-Listening level lower than 80dB SPL, there will be a compensation.
-For now, there are good results for listening levels between 60 and 80 dB SPL.
-The transfer function set needs to be improved (and extreme values limited) to avoid distortions.
-
-
-## Compilation et Execution (FFTW3 & gcc required)
-
-To compile:
-
-    clear && gcc -Wall main.c gui.c fft.c wave.c loudness.c -lfftw3 -lm -o dsp.bin
-
-To execute:
-
-    clear && ./dsp.bin [input_file] [output_file] [buffer_size] [listening_level]
-
-A buffer size of 4096 is recommended. The transfer function set is a .csv file that is assumed to be in the root directory of the program.
-
-
-## Flow
+## Program Flow
 
 - input parameters
 - .wav header read/write
@@ -84,3 +71,10 @@ A buffer size of 4096 is recommended. The transfer function set is a .csv file t
 - update file size
 - free memory
 
+
+## Possible improvements
+
+- Apply Hann windows to remove the windowing artifacts (regular click) and reduce distortion.
+- Normalize the output to -3dB FS max.
+- Improve the quality of the transfer function set.
+- Improve the execution speed by getting rid of fseek() statements.
