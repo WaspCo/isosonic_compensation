@@ -1,6 +1,6 @@
 #include "gui.h"
 
-
-int gui(){
+int gui()
+{
   return 0;
 }

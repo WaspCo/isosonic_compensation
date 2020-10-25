@@ -12,10 +12,20 @@
 
 #include "loudness.h"
 
-double circshift(double buffer_L[], double buffer_R[], unsigned int *size);
+double circshift(
+    double buffer_L[],
+    double buffer_R[],
+    unsigned int *size);
 
-double fft(Header *header, unsigned int *buffer_size, int64_t input_1_L[],
-    int64_t input_1_R[], int64_t output_L[], int64_t output_R[],
-    float *dft_mem_L, float *dft_mem_R, int level);
+double fft(
+    Header *header,
+    unsigned int *buffer_size,
+    int64_t input_1_L[],
+    int64_t input_1_R[],
+    int64_t output_L[],
+    int64_t output_R[],
+    float *dft_mem_L,
+    float *dft_mem_R,
+    int level);
 
 #endif // _FFT_H_ 1

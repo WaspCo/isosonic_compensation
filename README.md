@@ -34,6 +34,7 @@ The correction is applied at different levels on a white noise input file. By an
 
 **isosonic_compensation** contains the main program which can read/write a PCM .wav file and compensate the isosonic curves for a specific listening level. **curve_processing** contains a small program that creates a set of transfer functions from the Fletcher & Munson curves. For visualization purposes, **gnuplot** is used to plot the different steps. **sample** contains 3 audio files, and **asset** is for any image used in this readme.
 
+
 ## Possible improvements
 
 - Apply Hann windows to remove the windowing artifacts (regular click) and reduce distortion.

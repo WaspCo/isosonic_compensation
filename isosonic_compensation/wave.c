@@ -17,15 +17,15 @@
  * Date: Version intiale le 220317, dernière modification le 270817
  */
 
-#include <assert.h>    // Diagnostics (assert)
-#include <inttypes.h>  // Format conversion of integer types (PRId32)
-#include <math.h>      // Mathematics (fmod)
-#include <stdbool.h>   // Boolean type and values (true, false)
-#include <stdint.h>    // Integer types (int32_t)
-#include <stdio.h>     // Input/output (FILE, fread, printf, fprintf, sprintf, stderr)
-#include <stdlib.h>    // General utilities (malloc, atoi, size_t)
-#include <string.h>    // String handling (strcpy, strncpy, memcmp, memset)
-#include <unistd.h>    // POSIX operating system API
+#include <assert.h>   // Diagnostics (assert)
+#include <inttypes.h> // Format conversion of integer types (PRId32)
+#include <math.h>     // Mathematics (fmod)
+#include <stdbool.h>  // Boolean type and values (true, false)
+#include <stdint.h>   // Integer types (int32_t)
+#include <stdio.h>    // Input/output (FILE, fread, printf, fprintf, sprintf, stderr)
+#include <stdlib.h>   // General utilities (malloc, atoi, size_t)
+#include <string.h>   // String handling (strcpy, strncpy, memcmp, memset)
+#include <unistd.h>   // POSIX operating system API
 
 #include "wave.h"
 #include "loudness.h"
@@ -38,7 +38,8 @@
 unsigned int buffer_to_unsigned(unsigned char *buffer, size_t size)
 {
     unsigned int result = 0;
-    while (size != 0) result = (result << 8) | buffer[--size];
+    while (size != 0)
+        result = (result << 8) | buffer[--size];
     return result;
 }
 
@@ -50,7 +51,8 @@ unsigned int buffer_to_unsigned(unsigned char *buffer, size_t size)
 int buffer_to_signed(char *buffer, size_t size)
 {
     int result = 0;
-    while (size != 0) result = (result << 8) | buffer[--size];
+    while (size != 0)
+        result = (result << 8) | buffer[--size];
     return result;
 }
 
@@ -88,13 +90,14 @@ void signed_to_buffer(int x, char *buffer, size_t size)
  * @param message message header
  * @param size value to display
  */
-void display_size(char * message, size_t size)
+void display_size(char *message, size_t size)
 {
-    static const char unit[][7] = { "Bytes", "KBytes", "MBytes", "GBytes" };
+    static const char unit[][7] = {"Bytes", "KBytes", "MBytes", "GBytes"};
     static const size_t nunit = sizeof unit / sizeof unit[0];
 
     size_t k;
-    for (k = 0 ; k < nunit && size >= 1024 ; ++k, size /= 1024) ;
+    for (k = 0; k < nunit && size >= 1024; ++k, size /= 1024)
+        ;
 
     printf("%s : %zu %s\n", message, size, unit[k]);
 }
@@ -105,8 +108,8 @@ void display_size(char * message, size_t size)
  **/
 void display_duration(char *message, float raw_seconds)
 {
-    int hours = (int) raw_seconds / 3600;
-    int hours_residue = (int) raw_seconds % 3600;
+    int hours = (int)raw_seconds / 3600;
+    int hours_residue = (int)raw_seconds % 3600;
 
     int minutes = hours_residue / 60;
     int seconds = hours_residue % 60;
@@ -122,7 +125,7 @@ void display_duration(char *message, float raw_seconds)
  */
 long long minint(size_t n)
 {
-    return n ? -(1LL << (n-1)) : 0;
+    return n ? -(1LL << (n - 1)) : 0;
 }
 
 /** Produce max value for signed fixed-size integer
@@ -131,7 +134,7 @@ long long minint(size_t n)
  */
 long long maxint(size_t n)
 {
-    return n ? (1LL << (n-1)) - 1 : 0;
+    return n ? (1LL << (n - 1)) - 1 : 0;
 }
 
 /** Display header information
@@ -139,7 +142,7 @@ long long maxint(size_t n)
  */
 void display_header(Header *header)
 {
-    static const char encoding[][10] = { "? (0)", "PCM (1)", "? (2)", "? (3)", "? (4)", "? (5)", "A-Law (6)", "mu-law (7)" };
+    static const char encoding[][10] = {"? (0)", "PCM (1)", "? (2)", "? (3)", "? (4)", "? (5)", "A-Law (6)", "mu-law (7)"};
     static const unsigned nencoding = sizeof encoding / sizeof encoding[0];
 
     printf("Encoding: %s\n", header->type_format < nencoding ? encoding[header->type_format] : "?");
@@ -208,22 +211,27 @@ int header_read(Header *header, FILE *input)
     int charCount = 0, nbLetterFound = 0;
     header->info2parse[0] = '\0'; // untouched buffer to write back
 
-    while ((character = getc(input)) != -1 && charCount < 300){
+    while ((character = getc(input)) != -1 && charCount < 300)
+    {
 
         header->info2parse[charCount] = character;
         header->info[charCount++] = character;
 
-        if ((header->info[charCount-1] == '\0')
-        | (header->info2parse[charCount-1] == 12)) header->info2parse[charCount-1] = 95;
+        if ((header->info[charCount - 1] == '\0') | (header->info2parse[charCount - 1] == 12))
+            header->info2parse[charCount - 1] = 95;
 
         // check if we have the right character
-        if(character == fmt[nbLetterFound]){
+        if (character == fmt[nbLetterFound])
+        {
             nbLetterFound++;
-        }else{
+        }
+        else
+        {
             nbLetterFound = 0; // else reset
         }
 
-        if(nbLetterFound == countfmt){
+        if (nbLetterFound == countfmt)
+        {
             break;
         }
     }
@@ -231,17 +239,18 @@ int header_read(Header *header, FILE *input)
     // cut the fmt flag and get the right lenght
     if (charCount > 3)
     {
-      header->info[charCount-4] = '\0';
-      header->info2parse[charCount-4] = '\0';
-      header->info_len = charCount-3;
+        header->info[charCount - 4] = '\0';
+        header->info2parse[charCount - 4] = '\0';
+        header->info_len = charCount - 3;
     }
-    else { // no metadata available
-      header->info[0] = '\0';
-      header->info2parse[0] = '\0';
-      header->info_len = 0;
+    else
+    { // no metadata available
+        header->info[0] = '\0';
+        header->info2parse[0] = '\0';
+        header->info_len = 0;
     }
 
-    fread(tmp, 1, 1, input);  // eat the next empty byte
+    fread(tmp, 1, 1, input); // eat the next empty byte
 
     // (16-19) Wave format: subchunk size
     if (fread(buffer, 4, 1, input) != 1)
@@ -328,8 +337,8 @@ int header_read(Header *header, FILE *input)
 
     if (fread(tmp, 1, 1, input) != 1)
     {
-       fprintf(stderr, "ERROR: reading data size failed.\n");
-       return 0;
+        fprintf(stderr, "ERROR: reading data size failed.\n");
+        return 0;
     }
 
     data[0] = data[1];
@@ -338,7 +347,7 @@ int header_read(Header *header, FILE *input)
     data[3] = tmp[0];
     data[4] = '\0';
 
-    while ((memcmp(data, "data", 4) != 0) && i<300)
+    while ((memcmp(data, "data", 4) != 0) && i < 300)
     {
         if (fread(tmp, 1, 1, input) != 1)
         {
@@ -380,7 +389,6 @@ int header_read(Header *header, FILE *input)
     return 0;
 }
 
-
 /** Wave file data parsing & processing
  * @param buffer_size
  * @param input_L new data (left)
@@ -389,49 +397,49 @@ int header_read(Header *header, FILE *input)
  * @return number of sample block read
  */
 int data_read(size_t *to_read,
-               Header *header,
-               int64_t left[],
-               int64_t right[],
-               FILE *input)
-               {
+              Header *header,
+              int64_t left[],
+              int64_t right[],
+              FILE *input)
+{
 
-  // check header consistency
-  size_t bytes_in_each_channel = ((header->size_of_each_sample) / (header->nb_channel));
+    // check header consistency
+    size_t bytes_in_each_channel = ((header->size_of_each_sample) / (header->nb_channel));
 
-  if (bytes_in_each_channel * header->nb_channel != header->size_of_each_sample)
-  {
-    fprintf(stderr,
-      "Format error: sample size does not match header information (%ld x %ud # %ld).\n",
-      bytes_in_each_channel,
-      header->nb_channel,
-      header->size_of_each_sample);
+    if (bytes_in_each_channel * header->nb_channel != header->size_of_each_sample)
+    {
+        fprintf(stderr,
+                "Format error: sample size does not match header information (%ld x %ud # %ld).\n",
+                bytes_in_each_channel,
+                header->nb_channel,
+                header->size_of_each_sample);
 
-      return 0;
-  }
+        return 0;
+    }
 
-  short int data_buffer;
+    short int data_buffer;
 
-  for (unsigned buffer_sample = 0; buffer_sample < (*to_read); buffer_sample++)
-  {
-      // left channel
-      if (fread(&data_buffer, sizeof data_buffer, 1, input) != 1){
-          fprintf(stderr, "Error while reading sample %u (left).\n", buffer_sample);
-          return buffer_sample;
-      }
-      left[buffer_sample] = data_buffer;
+    for (unsigned buffer_sample = 0; buffer_sample < (*to_read); buffer_sample++)
+    {
+        // left channel
+        if (fread(&data_buffer, sizeof data_buffer, 1, input) != 1)
+        {
+            fprintf(stderr, "Error while reading sample %u (left).\n", buffer_sample);
+            return buffer_sample;
+        }
+        left[buffer_sample] = data_buffer;
 
-      // right channel
-      if (fread(&data_buffer, sizeof data_buffer, 1, input) != 1)
-      {
-          fprintf(stderr, "Error while reading sample %u (right).\n", buffer_sample);
-          return buffer_sample;
-      }
-      right[buffer_sample] = data_buffer;
-  }
+        // right channel
+        if (fread(&data_buffer, sizeof data_buffer, 1, input) != 1)
+        {
+            fprintf(stderr, "Error while reading sample %u (right).\n", buffer_sample);
+            return buffer_sample;
+        }
+        right[buffer_sample] = data_buffer;
+    }
 
-  return *to_read;
+    return *to_read;
 }
-
 
 /** Write Wave file header
  * @param wave header
@@ -475,8 +483,9 @@ int header_write(Header *header, FILE *output)
     unsigned_to_buffer(header->bits_per_sample, buffer, 2);
     fwrite(buffer, 2, 1, output);
 
-    for(int i=0; i<(header->extra_param_len); i++){
-      fwrite("\0", 1, 1, output); // extra parameters
+    for (int i = 0; i < (header->extra_param_len); i++)
+    {
+        fwrite("\0", 1, 1, output); // extra parameters
     }
     fwrite("data", 4, 1, output);
 
@@ -485,7 +494,6 @@ int header_write(Header *header, FILE *output)
 
     return 1;
 }
-
 
 /** Write Wave file data
  * @param buffer_size
@@ -501,25 +509,28 @@ int data_write(size_t *to_read,
                Header *header,
                int64_t left[],
                int64_t right[],
-               FILE *output){
+               FILE *output)
+{
 
-  char b[2] = {'\0'};
-  for (unsigned i = 0 ; i < (*to_read/2) ; ++i)
-  {
-    // left channel
-    signed_to_buffer(left[i], b, ((header->bits_per_sample)/8));
-    if (fwrite(b, ((header->bits_per_sample)/8), 1, output) != 1){
-        fprintf(stderr, "Error while writing sample %u (left).\n", i);
-        return i;
+    char b[2] = {'\0'};
+    for (unsigned i = 0; i < (*to_read / 2); ++i)
+    {
+        // left channel
+        signed_to_buffer(left[i], b, ((header->bits_per_sample) / 8));
+        if (fwrite(b, ((header->bits_per_sample) / 8), 1, output) != 1)
+        {
+            fprintf(stderr, "Error while writing sample %u (left).\n", i);
+            return i;
+        }
+
+        // right channel
+        signed_to_buffer(right[i], b, ((header->bits_per_sample) / 8));
+        if (fwrite(b, ((header->bits_per_sample) / 8), 1, output) != 1)
+        {
+            fprintf(stderr, "Error while writing sample %u (right).\n", i);
+            return i;
+        }
     }
 
-    // right channel
-    signed_to_buffer(right[i], b, ((header->bits_per_sample)/8));
-    if (fwrite(b, ((header->bits_per_sample)/8), 1, output) != 1){
-        fprintf(stderr, "Error while writing sample %u (right).\n", i);
-        return i;
-    }
-  }
-
-  return *to_read;
+    return *to_read;
 }
