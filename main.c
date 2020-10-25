@@ -25,7 +25,6 @@
 
 #include "wave.h"
 #include "fft.h"
-#include "gui.h"
 
 int64_t *allocation(size_t size)
 {
@@ -70,7 +69,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    FILE *iso_file = fopen("curve_processed.csv", "r");
+    FILE *iso_file = fopen("curve_processing/curve_processed.csv", "r");
     if (iso_file == NULL)
     {
         fprintf(stderr, "Error while loading the isophonic curves data.\n");
@@ -175,7 +174,7 @@ int main(int argc, char *argv[])
 
         size_t remaining = (header.nb_block) - (cumulative_read);
 
-        printf("------------------------------------ buffer n° %5u", i);
+        printf("------------------------------------ window n° %5u", i);
 
         size_t to_read = fmin(buffer_size, remaining);
         size_t count;
@@ -198,7 +197,7 @@ int main(int argc, char *argv[])
         fseek(input, ftell(input) - offset, SEEK_SET);
     }
 
-    printf("------------------------------------ Alt er vel (^_^) ----------------\n");
+    printf("------------------------------------ Alt er vel (^_^) -----------\n");
 
     printf("Sample read: %zu\n", cumulative_read);
     printf("Sample writen: %zu\n", cumulative_write);
