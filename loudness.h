@@ -14,8 +14,8 @@
 
 struct transfer_function
 { // Contient le spectre de la réponse impulsionelle
-    double **data;
-    double metadata[90];
+    float **data;
+    float metadata[90];
 }; // Les metadatas sont le niveau d'origine du spectre à 1kH.
 
 int loudness(

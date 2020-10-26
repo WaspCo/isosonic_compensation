@@ -2,7 +2,7 @@ CC=gcc
 
 all: isosonic_compensation
 
-isosonic_compensation: main.o fft.o wave.o loudness.o isosonic.o
+isosonic_compensation: main.o fft.o wav.o loudness.o isosonic.o
 	$(CC) main.c fft.c wav.c loudness.c isosonic.c -lfftw3 -lm -o isosonic_compensation
 
 main.o: main.c

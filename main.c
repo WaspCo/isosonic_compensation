@@ -109,16 +109,16 @@ int main(int argc, char *argv[])
 
     struct transfer_function transfer_function;
 
-    transfer_function.data = (double**)malloc((2*buffer_size)*sizeof(double*));
+    transfer_function.data = (float**)malloc((2*buffer_size)*sizeof(float*));
 
     for (int i = 0; i < (2 * buffer_size); i++)
     {
-        transfer_function.data[i] = (double*)malloc(90*sizeof(double));
+        transfer_function.data[i] = (float*)malloc(90*sizeof(float));
     }
 
     for (int i = 0; i < 90; i++) transfer_function.metadata[i] = 0.;
 
-    load_isophonic(iso_file, &transfer_function, &buffer_size);
+    craft_transfer_function(iso_file, &transfer_function, &buffer_size);
 
     ////////////////////////////////////////////////////////////////////////////
     // 2) working buffers allocation ///////////////////////////////////////////
@@ -132,10 +132,10 @@ int main(int argc, char *argv[])
     int64_t *output_R = allocation(buffer_size);
 
     // temp storage for P2
-    double *dft_mem_L;
-    double *dft_mem_R;
-    dft_mem_L = malloc(sizeof(double) * (buffer_size));
-    dft_mem_R = malloc(sizeof(double) * (buffer_size));
+    float *dft_mem_L;
+    float *dft_mem_R;
+    dft_mem_L = malloc(sizeof(float) * (buffer_size));
+    dft_mem_R = malloc(sizeof(float) * (buffer_size));
 
     if (input_L == NULL || input_R == NULL || output_L == NULL || output_R == NULL)
     {

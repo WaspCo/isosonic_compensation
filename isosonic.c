@@ -39,10 +39,10 @@ double Interpolation(
  * @param precision between 0 & 1 (double)
  * @return result (double)
  */
-double linear(double *in, double *out, double *precision)
+float linear(float *in, float *out, double *precision)
 {
 
-    double interpol = 0;
+    float interpol = 0;
 
     interpol = (((1 - (*precision)) * (*in)) + ((*precision) * (*out)));
 
@@ -55,7 +55,7 @@ double linear(double *in, double *out, double *precision)
  * @param buffer_size
  * @return integer
  */
-int load_isophonic(
+int craft_transfer_function(
     FILE *iso_file,
     struct transfer_function *curve_processed,
     unsigned int *buffer_size)
@@ -76,14 +76,14 @@ int load_isophonic(
 
             if (i == 31)
             { // end of file
-                sscanf(b2, "%lf", curve_raw.metadata[j]);
+                sscanf(b2, "%f", curve_raw.metadata[j]);
                 b2[0] = '\0';
                 b1[0] = '\0';
             }
 
             else
             { // end of line
-                sscanf(b2, "%lf", curve_raw.data[i][j]);
+                sscanf(b2, "%f", curve_raw.data[i][j]);
                 fread(b1, 1, 1, iso_file); // eating the back to line
                 b2[0] = '\0';
                 b1[0] = '\0';
@@ -96,11 +96,11 @@ int load_isophonic(
 
             if (i == 31)
             { // metadata save
-                sscanf(b2, "%lf", curve_raw.metadata[j]);
+                sscanf(b2, "%f", curve_raw.metadata[j]);
             }
             else
             { // data save
-                sscanf(b2, "%lf", curve_raw.data[i][j]);
+                sscanf(b2, "%f", curve_raw.data[i][j]);
             }
             b2[0] = '\0';
             b1[0] = '\0';
@@ -311,12 +311,12 @@ int load_isophonic(
     /* Sans calibration, nous assumerons qu'un niveau d'écoute de 80dB SPL
         * correspond à un niveau interne de -18dBSPL*/
 
-    return 1;
+    return 0;
 }
 
 FILE *process_isosonic_curve(void)
 {
-    double pre = 0.1;
+    float pre = 0.1;
     /*
     printf("\n/////////////////////////////////////////////////////////////////////\n");
     printf("/////// Interpolation & Conformation des Courbes Isosoniques ///////\n");
@@ -352,7 +352,7 @@ FILE *process_isosonic_curve(void)
 
     int nbc = 0; // variable boucle de décalage de 4 points sur 6
     int nbci = 9 / pre;
-    double t = 0;
+    float t = 0;
 
     double origin[9][31];  // Courbes d'origine
     double itrp[nbci][31]; // Courbes après interpolation
@@ -439,7 +439,7 @@ FILE *process_isosonic_curve(void)
     {
         for (nbc = 0; nbc < 9; nbc++)
         {
-            fprintf(curve_origin, "%lf,", origin[nbc][i]); // Export .csv
+            fprintf(curve_origin, "%f,", origin[nbc][i]); // Export .csv
         }
         fprintf(curve_origin, "\n");
     }
@@ -538,7 +538,7 @@ FILE *process_isosonic_curve(void)
     {
         for (nbcf = 0; nbcf < 90; nbcf++)
         {
-            fprintf(curve_flat, "%lf,", flat[nbcf][i]); // Export .csv
+            fprintf(curve_flat, "%f,", flat[nbcf][i]); // Export .csv
         }
         fprintf(curve_flat, "\n");
     }
@@ -598,7 +598,7 @@ FILE *process_isosonic_curve(void)
     {
         for (nbcf = 0; nbcf < 90; nbcf++)
         {
-            fprintf(curve_processed, "%lf,", curve_final.data[nbcf][i]); // Export .csv
+            fprintf(curve_processed, "%f,", curve_final.data[nbcf][i]); // Export .csv
         }
         fprintf(curve_processed, "\n");
     }
@@ -606,7 +606,7 @@ FILE *process_isosonic_curve(void)
     //Les metedatas de chaque courbe sont à la 91ème colonne
     for (nbcf = 0; nbcf < 90; nbcf++)
     {
-        fprintf(curve_processed, "%lf,", curve_final.metadata[nbcf]);
+        fprintf(curve_processed, "%f,", curve_final.metadata[nbcf]);
     }
 
     return curve_processed;

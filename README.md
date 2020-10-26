@@ -11,7 +11,7 @@ Most audio materials are edited, mixed and eventually mastered by a sound engine
 
 Final audio materials are played at different levels depending on the context. In a night club, it might be 110dB SPL. Using headphones, probably 70dB SPL. At home or at the office as an audio background however, it will range from 20db SPL to 60db SPL. We know that the human ear does not have a flat spectral sensitivity. We usually approximate our sensitivity to relative intensities and frequencies as logarithmic, but it is more complex than that. Equal-loudness contour curves were created to characterize precisely the human ear sensitivity to relative frequencies. The most famous is the [Fletcher-Munson](https://en.wikipedia.org/wiki/Equal-loudness_contour) set of curves determined experimentally by Harvey Fletcher and Wilden A. Munson in 1933.
 
-<p style="width:400px; margin: auto;" >
+<p style="width:300px; margin: auto;" >
   <img src="./asset/fletcher_munson.png">
 </p>
 
@@ -51,7 +51,7 @@ The different transfer functions can be plotted in folder `/curve` by running
 
 Using a fast Fourier transform (FFTW library) and an appropriate sliding window, we take the product of the audio file's spectrum with an appropriate transfer function. This is known to be much faster than convoluting the signal with the impulse response.
 
-<p style="width:500px; margin: auto;" >
+<p style="width:400px; margin: auto;" >
   <img src="./asset/fourier_convolution.png">
 </p>
 
@@ -59,16 +59,18 @@ Using a fast Fourier transform (FFTW library) and an appropriate sliding window,
 ## Program Flow
 
 - input parameters
+- process curves if needed
+- craft transfer function
 - .wav header read/write
-- processing loop
-  - data read
+- buffer loop
+  - buffer read
     - circshift
     - fft r2c
-    - complex product with the transfer function
+    - complex product with transfer function
     - ifft c2r
     - circshift
   - data write
-- update file size
+- update header of output .wav
 - free memory
 
 

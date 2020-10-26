@@ -15,8 +15,8 @@
 
 struct curve
 { // Contient les donnés isosonique + metadata
-    double data[90][31];
-    double metadata[90];
+    float data[90][31];
+    float metadata[90];
 }; // Les metadatas sont le niveau d'origine des courbes à 1kH.
 
 struct point
@@ -25,12 +25,12 @@ struct point
     double y;
 };
 
-double linear(
-    double *in,
-    double *out,
+float linear(
+    float *in,
+    float *out,
     double *precision);
 
-int load_isophonic(
+int craft_transfer_function(
     FILE *iso_file,
     struct transfer_function *curve_processed,
     unsigned int *buffer_size);
