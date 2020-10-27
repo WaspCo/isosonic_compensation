@@ -26,13 +26,13 @@ struct point
 };
 
 float linear(
-    float *in,
-    float *out,
-    double *precision);
+    float x,
+    float y,
+    double t);
 
-int craft_transfer_function(
-    FILE *iso_file,
-    struct transfer_function *curve_processed,
+uint8_t craft_transfer_function(
+    FILE *isosonic_file,
+    struct transfer_function *transfer_function,
     unsigned int *buffer_size);
 
 double Interpolation(

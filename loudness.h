@@ -19,7 +19,6 @@ struct transfer_function
 }; // Les metadatas sont le niveau d'origine du spectre à 1kH.
 
 int loudness(
-    Header *header,
     unsigned int *buffer_size,
     fftw_complex dft_freq_L[],
     fftw_complex dft_freq_R[],

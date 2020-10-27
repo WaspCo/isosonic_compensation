@@ -33,8 +33,8 @@ gnuplot -persist <<-EOFMarker
 
     set yrange [-10:50]
 
-    set output 'curve/curve_final.png'
+    set output 'curve/curve_processed.png'
 
-    plot for [i=1:90] 'carve/curve_final.csv' using 0:(column(i)) with lines lw 3
+    plot for [i=1:90] 'curve/curve_processed.csv' using 0:(column(i)) with lines lw 3
 
 EOFMarker

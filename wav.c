@@ -1,65 +1,63 @@
 /* @file wave.c
- * Fichiers WAVE (definitions)
+ * Read and write WAV audio files
  *
- * Le format WAVE est une application des fichiers RIFF (Resource Interchange File format).
- * C'est un format de fichier conteneur generique qui permet de stocker des donnees audionumeriques
- * dans des fichiers structures en blocs, avec differents modes de compression (PCM, etc)
- *
- * Les deux fonctions header_parse et data-parse permettent de lire un fichier wav simple, structure
- * en deux blocs consecutifs :
- * - le bloc de description de contenu (header),
- * - le/les bloc(s) de stockage des donnees (data), avec des donnees non compressees (PCM) sur deux canaux.
+ * The two main functions are:
+ * - header_parse() which allows to parse the WAV file header
+ * - data_parse() which allows to read the audio data
  *
  * Source:
  * - https://en.wikipedia.org/wiki/WAV
  * Auteur:
  * Victor Deleau
- * Date: Version intiale le 220317, dernière modification le 270817
  */
 
-#include <assert.h>   // Diagnostics (assert)
-#include <inttypes.h> // Format conversion of integer types (PRId32)
-#include <math.h>     // Mathematics (fmod)
-#include <stdbool.h>  // Boolean type and values (true, false)
-#include <stdint.h>   // Integer types (int32_t)
-#include <stdio.h>    // Input/output (FILE, fread, printf, fprintf, sprintf, stderr)
-#include <stdlib.h>   // General utilities (malloc, atoi, size_t)
-#include <string.h>   // String handling (strcpy, strncpy, memcmp, memset)
-#include <unistd.h>   // POSIX operating system API
+#include <assert.h>
+#include <inttypes.h>
+#include <math.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 #include "wav.h"
 #include "loudness.h"
 
 /** Translate raw buffer (little endian bytes) to integer value
- * @param x value to translate
- * @param buffer bytes to translate
- * @param size number of bytes
+ * @param buffer of bytes to translate (unsigned char*)
+ * @param size number of bytes (size_t)
+ * @return (unsigned int)
  */
 unsigned int buffer_to_unsigned(unsigned char *buffer, size_t size)
 {
     unsigned int result = 0;
+
     while (size != 0)
         result = (result << 8) | buffer[--size];
+
     return result;
 }
 
 /** Translate raw buffer (little endian bytes) to signed integer value
- * @param x value to translate
- * @param buffer bytes to translate
- * @param size number of bytes
+ * @param buffer bytes to translate (char*)
+ * @param size number of bytes (size_t)
+ * @return (int)
  */
 int buffer_to_signed(char *buffer, size_t size)
 {
     int result = 0;
+
     while (size != 0)
         result = (result << 8) | buffer[--size];
+
     return result;
 }
 
 /** Translate integer value to raw buffer (little endian bytes)
- * @param x value to translate
- * @param buffer bytes to translate
- * @param size number of bytes
+ * @param x value to translate (unsigned int)
+ * @param buffer of bytes to translate (unsigned char*)
+ * @param size number of bytes (size_t)
  */
 void unsigned_to_buffer(unsigned int x, unsigned char *buffer, size_t size)
 {
@@ -72,9 +70,9 @@ void unsigned_to_buffer(unsigned int x, unsigned char *buffer, size_t size)
 }
 
 /** Translate signed integer value to raw buffer (little endian bytes)
- * @param x value to translate
- * @param buffer bytes to translate
- * @param size number of bytes
+ * @param x value to translate (int)
+ * @param buffer of bytes to translate (char*)
+ * @param size number of bytes (size_t)
  */
 void signed_to_buffer(int x, char *buffer, size_t size)
 {
@@ -86,9 +84,9 @@ void signed_to_buffer(int x, char *buffer, size_t size)
     }
 }
 
-/** Displays a message containing a size
- * @param message message header
- * @param size value to display
+/** Displays the size of the message in bytes
+ * @param message header (char*)
+ * @param size value to display (size_t)
  */
 void display_size(char *message, size_t size)
 {
@@ -102,9 +100,9 @@ void display_size(char *message, size_t size)
     printf("%s : %zu %s\n", message, size, unit[k]);
 }
 
-/** Display a duration in hms format
- * @param message message header
- * @param raw_secondes value to display
+/** Display the duration in hms format
+ * @param message header (char*)
+ * @param raw_seconds value to display (float)
  **/
 void display_duration(char *message, float raw_seconds)
 {
@@ -120,8 +118,8 @@ void display_duration(char *message, float raw_seconds)
 }
 
 /** Produce min value for signed fixed-size integer
- * @param n number of bits
- * @return max value for INTn
+ * @param n number of bits (size_t)
+ * @return max value for n (long long)
  */
 long long minint(size_t n)
 {
@@ -129,41 +127,48 @@ long long minint(size_t n)
 }
 
 /** Produce max value for signed fixed-size integer
- * @param n number of bits
- * @return max value for INTn
+ * @param n number of bits (size_t)
+ * @return max value for n (long long)
  */
 long long maxint(size_t n)
 {
     return n ? (1LL << (n - 1)) - 1 : 0;
 }
 
-/** Display header information
- * @param header to display
+/** Display WAV file header information
+ * @param header to display (struct header)
  */
 void display_header(Header *header)
 {
     static const char encoding[][10] = {"? (0)", "PCM (1)", "? (2)", "? (3)", "? (4)", "? (5)", "A-Law (6)", "mu-law (7)"};
+
     static const unsigned nencoding = sizeof encoding / sizeof encoding[0];
 
     printf("Encoding: %s\n", header->type_format < nencoding ? encoding[header->type_format] : "?");
-    printf("Number of channels: %u\n", header->nb_channel);
-    printf("Sample rate: %u Hertz\n", header->sample_rate);
-    printf("Byte Rate: %u B/s, bit rate: %u b/s\n", header->byte_rate, header->byte_rate * 8);
-    printf("Sample block size: %u Bytes\n", header->block_size);
-    printf("Bits per sample: %u bits\n", header->bits_per_sample);
-    display_size("Data file size", header->data_size);
-    printf("Number of blocks: %lu\n", header->nb_block);
-    display_duration("Approx. duration", header->duration_in_seconds);
 
-    //printf("RAW Metadata: %s\n\n", header->info2parse); // for debugging
+    printf("Number of channels: %u\n", header->nb_channel);
+
+    printf("Sample rate: %u Hertz\n", header->sample_rate);
+
+    printf("Byte Rate: %u B/s, bit rate: %u b/s\n", header->byte_rate, header->byte_rate * 8);
+
+    printf("Sample block size: %u Bytes\n", header->block_size);
+
+    printf("Bits per sample: %u bits\n", header->bits_per_sample);
+
+    display_size("Data file size", header->data_size);
+
+    printf("Number of blocks: %lu\n", header->nb_block);
+
+    display_duration("Approx. duration", header->duration_in_seconds);
 }
 
-/** Wave file header parsing
- * @param header read data storage
- * @param input source file
- * @return 0 if an error occured, 1 otherwise
+/** parse WAV file header
+ * @param header (struct header*)
+ * @param input source file (FILE*)
+ * @return 0 if an error occured, 1 otherwise (int)
  */
-int header_read(Header *header, FILE *input)
+uint8_t header_read(Header *header, FILE *input)
 {
     // WAVE header structure
     unsigned char buffer[4];
@@ -382,20 +387,71 @@ int header_read(Header *header, FILE *input)
     return 0;
 }
 
-/** Wave file data parsing & processing
- * @param buffer_size
- * @param input_L new data (left)
- * @param input_R new data (right)
- * @param ptr to input source file
- * @return number of sample block read
+/** Write WAV file header (44 bytes or more)
+ * @param header (struct header*)
+ * @param output_file (FILE*)
  */
-int data_read(size_t *to_read,
-              Header *header,
-              int64_t left[],
-              int64_t right[],
-              FILE *input)
+uint8_t header_write(Header *header, FILE *output_file)
 {
+    unsigned char buffer[4];
 
+    fwrite("RIFF", 4, 1, output_file);
+
+    unsigned_to_buffer(header->file_size, buffer, 4);
+    fwrite(buffer, 4, 1, output_file);
+
+    fwrite("WAVE", 4, 1, output_file);
+
+    fwrite(header->info, header->info_len, 1, output_file);
+
+    fwrite("fmt ", 4, 1, output_file);
+
+    unsigned_to_buffer(header->chunk_size, buffer, 4);
+    fwrite(buffer, 4, 1, output_file);
+
+    unsigned_to_buffer(header->type_format, buffer, 2);
+    fwrite(buffer, 2, 1, output_file);
+
+    unsigned_to_buffer(header->nb_channel, buffer, 2);
+    fwrite(buffer, 2, 1, output_file);
+
+    unsigned_to_buffer(header->sample_rate, buffer, 4);
+    fwrite(buffer, 4, 1, output_file);
+
+    unsigned_to_buffer(header->byte_rate, buffer, 4);
+    fwrite(buffer, 4, 1, output_file);
+
+    unsigned_to_buffer(header->block_size, buffer, 2);
+    fwrite(buffer, 2, 1, output_file);
+
+    unsigned_to_buffer(header->bits_per_sample, buffer, 2);
+    fwrite(buffer, 2, 1, output_file);
+
+    for (int i = 0; i < (header->extra_param_len); i++)
+    {
+        fwrite("\0", 1, 1, output_file); // extra parameters
+    }
+    fwrite("data", 4, 1, output_file);
+
+    unsigned_to_buffer(header->data_size, buffer, 4);
+    fwrite(buffer, 4, 1, output_file);
+
+    return 0;
+}
+
+/** Read WAV file data block of samples
+ * @param bytes_to_read (size_t)
+ * @param left_input_buffer to read into (int64_t[])
+ * @param right_input_buffer to read into (int64_t[])
+ * @param input_file to read from (FILE*)
+ * @return number of bytes read (int)
+ */
+int data_read(size_t bytes_to_read,
+              Header *header,
+              int64_t left_input_buffer[],
+              int64_t right_input_buffer[],
+              FILE *input_file)
+{
     // check header consistency
     size_t bytes_in_each_channel = ((header->size_of_each_sample) / (header->nb_channel));
 
@@ -410,120 +466,64 @@ int data_read(size_t *to_read,
         return 1;
     }
 
-    short int data_buffer;
+    short int data_buffer = 0;
 
-    for (unsigned buffer_sample = 0; buffer_sample < (*to_read); buffer_sample++)
+    for (unsigned i = 0; i < bytes_to_read; i++)
     {
         // left channel
-        if (fread(&data_buffer, sizeof data_buffer, 1, input) != 1)
+        if (fread(&data_buffer, sizeof data_buffer, 1, input_file) != 1)
         {
-            fprintf(stderr, "Error while reading sample %u (left).\n", buffer_sample);
-            return buffer_sample;
+            fprintf(stderr, "Error while reading sample %u (left).\n", i);
+            return -1;
         }
-        left[buffer_sample] = data_buffer;
+        left_input_buffer[i] = data_buffer;
 
         // right channel
-        if (fread(&data_buffer, sizeof data_buffer, 1, input) != 1)
+        if (fread(&data_buffer, sizeof data_buffer, 1, input_file) != 1)
         {
-            fprintf(stderr, "Error while reading sample %u (right).\n", buffer_sample);
-            return buffer_sample;
+            fprintf(stderr, "Error while reading sample %u (right).\n", i);
+            return -1;
         }
-        right[buffer_sample] = data_buffer;
+        right_input_buffer[i] = data_buffer;
     }
 
-    return *to_read;
-}
-
-/** Write Wave file header
- * @param wave header
- * @param pt to output file
- *
- * Write the beginning of a simple Wave file (44 bytes at least).
- */
-int header_write(Header *header, FILE *output)
-{
-    unsigned char buffer[4];
-
-    fwrite("RIFF", 4, 1, output);
-
-    unsigned_to_buffer(header->file_size, buffer, 4);
-    fwrite(buffer, 4, 1, output);
-
-    fwrite("WAVE", 4, 1, output);
-
-    fwrite(header->info, header->info_len, 1, output);
-
-    fwrite("fmt ", 4, 1, output);
-
-    unsigned_to_buffer(header->chunk_size, buffer, 4);
-    fwrite(buffer, 4, 1, output);
-
-    unsigned_to_buffer(header->type_format, buffer, 2);
-    fwrite(buffer, 2, 1, output);
-
-    unsigned_to_buffer(header->nb_channel, buffer, 2);
-    fwrite(buffer, 2, 1, output);
-
-    unsigned_to_buffer(header->sample_rate, buffer, 4);
-    fwrite(buffer, 4, 1, output);
-
-    unsigned_to_buffer(header->byte_rate, buffer, 4);
-    fwrite(buffer, 4, 1, output);
-
-    unsigned_to_buffer(header->block_size, buffer, 2);
-    fwrite(buffer, 2, 1, output);
-
-    unsigned_to_buffer(header->bits_per_sample, buffer, 2);
-    fwrite(buffer, 2, 1, output);
-
-    for (int i = 0; i < (header->extra_param_len); i++)
-    {
-        fwrite("\0", 1, 1, output); // extra parameters
-    }
-    fwrite("data", 4, 1, output);
-
-    unsigned_to_buffer(header->data_size, buffer, 4);
-    fwrite(buffer, 4, 1, output);
-
-    return 0;
+    return bytes_to_read;
 }
 
 /** Write Wave file data
- * @param buffer_size
- * @param wave header
- * @param left channel buffer
- * @param right channel buffer
- * @param ptr to output file
- * @return 0 if an error occured, 1 otherwise
- *
- *  Write one buffer of samples (block_size * buffer_size)
+ * @param bytes_to_write (size_t)
+ * @param header (header*)
+ * @param left_buffer to write (int64_t[])
+ * @param right_buffer to write (int64_t[])
+ * @param output_file (FILE*)
+ * @return number of bytes to write (int)
  */
-int data_write(size_t *to_read,
+int data_write(size_t bytes_to_write,
                Header *header,
-               int64_t left[],
-               int64_t right[],
-               FILE *output)
+               int64_t left_buffer[],
+               int64_t right_buffer[],
+               FILE *output_file)
 {
 
     char b[2] = {'\0'};
-    for (unsigned i = 0; i < (*to_read / 2); ++i)
+    for (unsigned i = 0; i < (bytes_to_write / 2); ++i)
     {
         // left channel
-        signed_to_buffer(left[i], b, ((header->bits_per_sample) / 8));
-        if (fwrite(b, ((header->bits_per_sample) / 8), 1, output) != 1)
+        signed_to_buffer(left_buffer[i], b, ((header->bits_per_sample) / 8));
+        if (fwrite(b, ((header->bits_per_sample) / 8), 1, output_file) != 1)
         {
             fprintf(stderr, "Error while writing sample %u (left).\n", i);
-            return i;
+            return -1;
         }
 
         // right channel
-        signed_to_buffer(right[i], b, ((header->bits_per_sample) / 8));
-        if (fwrite(b, ((header->bits_per_sample) / 8), 1, output) != 1)
+        signed_to_buffer(right_buffer[i], b, ((header->bits_per_sample) / 8));
+        if (fwrite(b, ((header->bits_per_sample) / 8), 1, output_file) != 1)
         {
             fprintf(stderr, "Error while writing sample %u (right).\n", i);
-            return i;
+            return -1;
         }
     }
 
-    return *to_read;
+    return bytes_to_write;
 }

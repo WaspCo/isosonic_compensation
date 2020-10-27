@@ -44,7 +44,7 @@ The different transfer functions can be plotted in folder `/curve` by running
 ./gnuplot.sh
 ```
 
-`window_size` should be a power of two in the range [8-2^16] and `listening_level` must be in the range [40-80] and is expressed in dbSPL. A buffer size of size 4096 is recommended. The program currently supports 16bits PCM .wav file with any sample rate. For now, there are good results are obtained for listening levels between 60 and 80 dB SPL.
+`window_size` should be a power of two in the range [8-2^16] and `listening_level` in dbSPL must be in the range [40-80]. A buffer size of size 4096 is recommended. The program currently supports 16bits PCM .wav file with any sample rate.
 
 
 ## How it works

@@ -56,7 +56,6 @@
 } */
 
 /** apply compensation to spectrum
- * @param header informations
  * @param buffer_size
  * @param left channel spectrum
  * @param right channel spectrum
@@ -67,7 +66,6 @@
  * @return integer
  */
 int loudness(
-    Header *header,
     unsigned int *buffer_size,
     fftw_complex dft_freq_L[],
     fftw_complex dft_freq_R[],

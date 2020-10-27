@@ -1,16 +1,12 @@
-/*
- * Compensation de courbes isophoniques
- * Application principale
+/* @file main.c
+ * Isosonic Compensation
  *
- * Ce programme permet de compenser les atténuations physiologiques de l'oreille
- * humaine en fonction de l'intensité et de la fréquence. Les calculs se basent
- * sur un niveau de mixage moyen de 80dB SPL par défaut (bientôt réglable) à
- * partir duquel la compensation s'arrête.
- * Une FFT est réalisé afin de manipuler les coefficients d'intensité des bins.
+ * Given a listening level in dbSPL at which the audio material was supposedly
+ * mixed, and a listening level at which the audio material is being listened
+ * to, automatically apply a spectrum correction as to compensate the effect
+ * of the isosonic curves of the human ear.
  *
- * Auteur :
- * Victor Deleau
- * Date : Version initiale le 190317, dernière modification le 270817
+ * Auteur : Victor Deleau
  */
 
 #include <stdio.h>
@@ -18,21 +14,26 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <inttypes.h>
-
 #include <math.h>
-#include <fftw3.h>
 #include <time.h>
+
+#include <fftw3.h>
 
 #include "wav.h"
 #include "fft.h"
 #include "isosonic.h"
 #include "loudness.h"
 
+/** Allocate a memory buffer and initialize it with zeros
+ * @return a pointer to the allocated memory (int64_t*)
+ */
 int64_t *allocation(size_t size)
 {
     int64_t *buffer = (int64_t *)malloc(size * sizeof(int64_t));
 
-    if (buffer) memset(buffer, 0, size * sizeof(int64_t));
+    if (!buffer) return NULL; 
+    
+    memset(buffer, 0, size * sizeof(int64_t));
 
     return buffer;
 }
@@ -177,21 +178,34 @@ int main(int argc, char *argv[])
 
         printf("------------------------------------ window n° %5u", i);
 
-        size_t to_read = fmin(buffer_size, remaining);
+        size_t bytes_to_read = fmin(buffer_size, remaining);
         size_t count;
 
         // read data from disk
-        count = data_read(&to_read, &header, input_L, input_R, input);
+        count = data_read(bytes_to_read, &header, input_L, input_R, input);
 
-        printf(" (%zu/%zu) -----\n", count, to_read);
+        if (count == -1)
+        {
+            fprintf(stderr, "Error while reading data from input WAV file.\n");
+            exit(1);
+        }
+
+        printf(" (%zu/%zu) -----\n", count, bytes_to_read);
         cumulative_read += (count / 2);
 
         // apply fft + correction
-        fft(&header, &buffer_size, input_L, input_R, output_L, output_R,
+        fft(&buffer_size, input_L, input_R, output_L, output_R,
             dft_mem_L, dft_mem_R, &transfer_function, level);
 
         // write back P1 to disk
-        count = data_write(&to_read, &header, output_L, output_R, output);
+        count = data_write(bytes_to_read, &header, output_L, output_R, output);
+
+        if (count == -1)
+        {
+            fprintf(stderr, "Error while writing data to output WAV file.\n");
+            exit(1);
+        }
+
         cumulative_write += (count / 2);
 
         // overlapp-add of P2 (effectively rewind pointer of "offset" bytes)
@@ -219,6 +233,8 @@ int main(int argc, char *argv[])
     fwrite(buffer, 4, 1, output);
 
     // free the memory !
+
+    for (int i = 0; i < (2 * buffer_size); i++) free(transfer_function.data[i]);
 
     free(input_L);
     free(input_R);

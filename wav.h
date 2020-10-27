@@ -33,28 +33,32 @@ Header;
 
 void display_header(Header *header);
 
-int header_read(Header *header, FILE *input);
+uint8_t header_read(Header *header, FILE *input);
 
-int data_read(size_t *buffer_size,
+int data_read(size_t bytes_to_read,
               Header *header,
-              int64_t left[],
-              int64_t right[],
-              FILE *input);
+              int64_t left_input_buffer[],
+              int64_t right_input_buffer[],
+              FILE *input_file);
 
-int header_write(Header *header, FILE *output);
+uint8_t header_write(Header *header, FILE *output);
 
-int data_write(size_t *to_read,
-               Header *header,
-               int64_t left[],
-               int64_t write[],
-               FILE *output);
+int data_write(size_t bytes_to_read,
+                   Header *header,
+                   int64_t left_buffer[],
+                   int64_t right_buffer[],
+                   FILE *output_file);
 
 long long maxint(size_t n);
+
 long long minint(size_t n);
 
 unsigned int buffer_to_unsigned(unsigned char *buffer, size_t size);
+
 int buffer_to_signed(char *buffer, size_t size);
+
 void unsigned_to_buffer(unsigned int x, unsigned char *buffer, size_t size);
+
 void signed_to_buffer(int x, char *buffer, size_t size);
 
 #endif // WAVE_H 1

@@ -1,5 +1,5 @@
-#ifndef _FFT_H_
-#define _FFT_H_ 1
+#ifndef FFT_H
+#define FFT_H 1
 
 #include <stdio.h>
 #include <unistd.h>
@@ -8,26 +8,26 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include <math.h>
+
 #include <fftw3.h>
 
 #include "loudness.h"
 #include "isosonic.h"
 
-double circshift(
-    double buffer_L[],
-    double buffer_R[],
-    unsigned int *size);
+uint8_t circshift(
+    double left_buffer[],
+    double right_buffer[],
+    unsigned int *buffer_size);
 
-double fft(
-    Header *header,
+uint8_t fft(
     unsigned int *buffer_size,
-    int64_t input_1_L[],
-    int64_t input_1_R[],
-    int64_t output_L[],
-    int64_t output_R[],
-    float *dft_mem_L,
-    float *dft_mem_R,
-    struct transfer_function *curve_processed,
-    int level);
+    int64_t left_input_buffer[],
+    int64_t right_input_buffer[],
+    int64_t left_output_buffer[],
+    int64_t right_output_buffer[],
+    float *left_dft_memory,
+    float *right_dft_memory,
+    struct transfer_function *transfer_function,
+    unsigned int listening_level);
 
-#endif // _FFT_H_ 1
+#endif // FFT_H 1

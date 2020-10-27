@@ -1,11 +1,10 @@
 /* @file fft.c
- * Transformé de Fourier Discrete sur tableau de sample (definitions)
+ * Fast Discrete Fourier Transform
  *
  * Source:
  * - https://en.wikipedia.org/wiki/Discrete_Fourier_transform
  * Auteur:
  * Victor Deleau
- * Date: Version intiale le 220317, dernière modification le 270817
  */
 
 #include <stdio.h>
@@ -15,6 +14,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include <math.h>
+
 #include <fftw3.h>
 
 #include "fft.h"
@@ -24,60 +24,61 @@
 #define REAL 0
 #define IMAG 1
 
-/** Perform a circular shifting of an array
- * @param left sample block
- * @param right sample block
- * @param buffer size
- *  The array of sample is shifted by buffer_size/2
+/** Perform a circular shifting of half of the array
+ * @param left_buffer channel sample block (double[])
+ * @param right_buffer channel sample block (double[])
+ * @param buffer_size (unsigned int)
+ * @return 0 if ok, 1 otherwise (uint_8)
  */
-double circshift(double buffer_L[], double buffer_R[], unsigned int *size)
+uint8_t circshift(
+    double left_buffer[],
+    double right_buffer[],
+    unsigned int *buffer_size)
 {
-
-    double circ_L[*size / 2];
-    double circ_R[*size / 2];
+    double tmp_left[*buffer_size / 2];
+    double tmp_right[*buffer_size / 2];
 
     int i = 0;
 
-    for (i = 0; i < (*size / 2 - 1); i++)
+    for (i = 0; i < (*buffer_size / 2 - 1); i++)
     {
-        circ_L[i] = buffer_L[i];
-        circ_R[i] = buffer_R[i];
+        tmp_left[i] = left_buffer[i];
+        tmp_right[i] = right_buffer[i];
     }
 
-    for (i = 0; i < (*size / 2 - 1); i++)
+    for (i = 0; i < (*buffer_size / 2 - 1); i++)
     {
-        buffer_L[i] = buffer_L[i + (*size / 2)];
-        buffer_R[i] = buffer_R[i + (*size / 2)];
-        buffer_L[i + (*size / 2)] = circ_L[i];
-        buffer_R[i + (*size / 2)] = circ_R[i];
+        left_buffer[i] = left_buffer[i + (*buffer_size / 2)];
+        right_buffer[i] = right_buffer[i + (*buffer_size / 2)];
+        left_buffer[i + (*buffer_size / 2)] = tmp_left[i];
+        right_buffer[i + (*buffer_size / 2)] = tmp_right[i];
     }
 
     return 0;
 }
 
 /** Perform a FFT on an array of samples
- * @param header
- * @param buffer_size, number of block in each buffer
- * @param left input buffer
- * @param right input buffer
- * @param left output buffer
- * @param right output buffer
- * @param memory output buffer
- * @param memory output buffer
- * @param listening level
- * @return 0 if an error occured, 1 otherwise
+ * @param buffer_size (unsigned int)
+ * @param left_input_buffer (int64_t[])
+ * @param right_input_buffer (int64_t[])
+ * @param left_output_buffer (int64_t[])
+ * @param right_output_buffer (int64_t[])
+ * @param left_dft_memory (float*)
+ * @param right_dft_memory (float*)
+ * @param transfer_function to apply (struct transfer_function)
+ * @param listening_level (unsigned int)
+ * @return 0 if ok, 1 otherwise (uint8_t)
  */
-double fft(
-    Header *header,
+uint8_t fft(
     unsigned int *buffer_size,
-    int64_t input_L[],
-    int64_t input_R[],
-    int64_t output_L[],
-    int64_t output_R[],
-    float *dft_mem_L,
-    float *dft_mem_R,
-    struct transfer_function *curve_processed,
-    int level)
+    int64_t left_input_buffer[],
+    int64_t right_input_buffer[],
+    int64_t left_output_buffer[],
+    int64_t right_output_buffer[],
+    float *left_dft_memory,
+    float *right_dft_memory,
+    struct transfer_function *transfer_function,
+    unsigned int listening_level)
 {
 
     // Variable Declaration
@@ -112,9 +113,9 @@ double fft(
     // data in & buffers filling
     for (i = 0; i < n; i++)
     { // P1 filling
-        dft_time_L[i] = (double)input_L[i] / 0x8000;
+        dft_time_L[i] = (double)left_input_buffer[i] / 0x8000;
         // * 0.5 * (1 - cos(2*pi*i/(n*2-1)));		// test hann window;
-        dft_time_R[i] = (double)input_R[i] / 0x8000;
+        dft_time_R[i] = (double)right_input_buffer[i] / 0x8000;
         // * 0.5 * (1 - cos(2*pi*i/(n*2-1)));
     }
 
@@ -137,7 +138,7 @@ double fft(
     fftw_execute(right_plan_forward);
 
     // apply compensation
-    loudness(header, buffer_size, dft_freq_L, dft_freq_R, dft_freq_conv_L, dft_freq_conv_R, curve_processed, level);
+    loudness(buffer_size, dft_freq_L, dft_freq_R, dft_freq_conv_L, dft_freq_conv_R, transfer_function, listening_level);
 
     // plan backward fft and apply to left channel
     left_plan_backward = fftw_plan_dft_c2r_1d(
@@ -162,16 +163,16 @@ double fft(
 
     for (i = 0; i < (n / 2); i++)
     { // Add new P1 to old P2
-        output_L[i] = dft_mem_L[i] + dft_time_L[i];
-        output_R[i] = dft_mem_R[i] + dft_time_R[i];
+        left_output_buffer[i] = left_dft_memory[i] + dft_time_L[i];
+        right_output_buffer[i] = right_dft_memory[i] + dft_time_R[i];
     }
 
     // overlapp-add step
     int j = 0;
     for (int i = (n / 2); i < n; i++)
     {
-        dft_mem_L[j] = dft_time_L[i];
-        dft_mem_R[j] = dft_time_R[i];
+        left_dft_memory[j] = dft_time_L[i];
+        right_dft_memory[j] = dft_time_R[i];
         j++;
     }
 
