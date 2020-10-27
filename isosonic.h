@@ -17,7 +17,7 @@ struct curve
 { // Contient les donnés isosonique + metadata
     float data[90][31];
     float metadata[90];
-}; // Les metadatas sont le niveau d'origine des courbes à 1kH.
+} curve; // Les metadatas sont le niveau d'origine des courbes à 1kH.
 
 struct point
 {
@@ -32,8 +32,8 @@ float linear(
 
 uint8_t craft_transfer_function(
     FILE *isosonic_file,
-    struct transfer_function *transfer_function,
-    unsigned int *buffer_size);
+    TransferFunction *transfer_function,
+    const size_t buffer_size);
 
 double Interpolation(
     struct point p1,

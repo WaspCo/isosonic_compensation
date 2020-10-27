@@ -493,15 +493,15 @@ int data_read(size_t bytes_to_read,
 /** Write Wave file data
  * @param bytes_to_write (size_t)
  * @param header (header*)
- * @param left_buffer to write (int64_t[])
- * @param right_buffer to write (int64_t[])
+ * @param left_output_buffer to write (int64_t[])
+ * @param right_output_buffer to write (int64_t[])
  * @param output_file (FILE*)
  * @return number of bytes to write (int)
  */
 int data_write(size_t bytes_to_write,
                Header *header,
-               int64_t left_buffer[],
-               int64_t right_buffer[],
+               int64_t left_output_buffer[],
+               int64_t right_output_buffer[],
                FILE *output_file)
 {
 
@@ -509,7 +509,7 @@ int data_write(size_t bytes_to_write,
     for (unsigned i = 0; i < (bytes_to_write / 2); ++i)
     {
         // left channel
-        signed_to_buffer(left_buffer[i], b, ((header->bits_per_sample) / 8));
+        signed_to_buffer(left_output_buffer[i], b, ((header->bits_per_sample) / 8));
         if (fwrite(b, ((header->bits_per_sample) / 8), 1, output_file) != 1)
         {
             fprintf(stderr, "Error while writing sample %u (left).\n", i);
@@ -517,7 +517,7 @@ int data_write(size_t bytes_to_write,
         }
 
         // right channel
-        signed_to_buffer(right_buffer[i], b, ((header->bits_per_sample) / 8));
+        signed_to_buffer(right_output_buffer[i], b, ((header->bits_per_sample) / 8));
         if (fwrite(b, ((header->bits_per_sample) / 8), 1, output_file) != 1)
         {
             fprintf(stderr, "Error while writing sample %u (right).\n", i);

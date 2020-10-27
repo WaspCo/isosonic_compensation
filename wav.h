@@ -27,9 +27,7 @@ typedef struct Header
     unsigned long nb_block;            // number of samples
     unsigned long size_of_each_sample; // all Channel sample size
     float duration_in_seconds;
-}
-
-Header;
+} Header;
 
 void display_header(Header *header);
 
@@ -43,11 +41,11 @@ int data_read(size_t bytes_to_read,
 
 uint8_t header_write(Header *header, FILE *output);
 
-int data_write(size_t bytes_to_read,
-                   Header *header,
-                   int64_t left_buffer[],
-                   int64_t right_buffer[],
-                   FILE *output_file);
+int data_write(size_t bytes_to_write,
+               Header *header,
+               int64_t left_output_buffer[],
+               int64_t right_output_buffer[],
+               FILE *output_file);
 
 long long maxint(size_t n);
 

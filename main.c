@@ -23,20 +23,9 @@
 #include "fft.h"
 #include "isosonic.h"
 #include "loudness.h"
+#include "allocation.h"
 
-/** Allocate a memory buffer and initialize it with zeros
- * @return a pointer to the allocated memory (int64_t*)
- */
-int64_t *allocation(size_t size)
-{
-    int64_t *buffer = (int64_t *)malloc(size * sizeof(int64_t));
-
-    if (!buffer) return NULL; 
-    
-    memset(buffer, 0, size * sizeof(int64_t));
-
-    return buffer;
-}
+#define NB_CURVE 90
 
 int main(int argc, char *argv[])
 {
@@ -73,72 +62,64 @@ int main(int argc, char *argv[])
     Header header;
     header_read(&header, input);
 
+    
     // get the specified buffer size
-    unsigned int buffer_size;
-    if ((argc > 3 && sscanf(argv[3], "%u", &buffer_size) != 1) || (buffer_size < 8) || (buffer_size > 1048576))
+    int b = 0;
+    if ((argc>3 && sscanf(argv[3], "%u", &b) != 1) || (b < 8) || (b > 1048576))
     {
-        fprintf(stderr, "Incorrect buffer size (%s)\n (8 < buffer < 1048576)\n", argv[3]);
+        fprintf(stderr, "Incorrect buffer size (%s) (8 <= buffer_size <= 1048576)\n", argv[3]);
         exit(1);
     }
+    const size_t BUFFER_SIZE = b;
 
     // get the listening level
-    int level = 0;
-    sscanf(argv[4], "%u", &level);
-    if ((argc > 3) && ((level < 0) || (level > 80)))
+    b = 0;
+    ;
+    if ((argc>3 && sscanf(argv[4], "%u", &b) != 1) || (b <= 0) || (b > 80))
     {
-        fprintf(stderr, "Incorrect listening level (%s)\n (0 < Level < 80)\n", argv[4]);
+        fprintf(stderr, "Incorrect listening level (%s)\n (0 < listening_level <= 80)\n", argv[4]);
         exit(1);
     }
+    const size_t LISTENING_LEVEL = b;
 
     // allocate isosonic curves on the heap and load
 
-    FILE *iso_file = NULL;
-    iso_file = fopen("curve_processed.csv", "r");
+    FILE *isosonic_file = NULL;
+    isosonic_file = fopen("curve_processed.csv", "r");
 
-    if (!iso_file)
+    if (!isosonic_file)
     {
-        iso_file = process_isosonic_curve();
+        isosonic_file = process_isosonic_curve();
 
-        if (!iso_file)
+        if (!isosonic_file)
         {
             fprintf(stderr, "Error while processing the isosonic curves.");
             exit(1);
         }
     }
 
-#include "loudness.h"
+    TransferFunction *transfer_function;
 
-    struct transfer_function transfer_function;
+    transfer_function = allocate_transfer_function(BUFFER_SIZE, NB_CURVE);
 
-    transfer_function.data = (float**)malloc((2*buffer_size)*sizeof(float*));
+    if (!transfer_function) exit(1);
 
-    for (int i = 0; i < (2 * buffer_size); i++)
-    {
-        transfer_function.data[i] = (float*)malloc(90*sizeof(float));
-    }
-
-    for (int i = 0; i < 90; i++) transfer_function.metadata[i] = 0.;
-
-    craft_transfer_function(iso_file, &transfer_function, &buffer_size);
+    craft_transfer_function(isosonic_file, transfer_function, BUFFER_SIZE);
 
     ////////////////////////////////////////////////////////////////////////////
     // 2) working buffers allocation ///////////////////////////////////////////
 
-    // input buffer
-    int64_t *input_L = allocation(buffer_size);
-    int64_t *input_R = allocation(buffer_size);
+    int64_t *left_input_buffer = allocate_buffer(BUFFER_SIZE);
+    int64_t *right_input_buffer = allocate_buffer(BUFFER_SIZE);
 
-    // output buffer
-    int64_t *output_L = allocation(buffer_size);
-    int64_t *output_R = allocation(buffer_size);
+    int64_t *left_output_buffer = allocate_buffer(BUFFER_SIZE);
+    int64_t *right_output_buffer = allocate_buffer(BUFFER_SIZE);
 
     // temp storage for P2
-    float *dft_mem_L;
-    float *dft_mem_R;
-    dft_mem_L = malloc(sizeof(float) * (buffer_size));
-    dft_mem_R = malloc(sizeof(float) * (buffer_size));
+    float *left_overlap_buffer = malloc(sizeof(float) * (BUFFER_SIZE));
+    float *right_overlap_buffer = malloc(sizeof(float) * (BUFFER_SIZE));
 
-    if (input_L == NULL || input_R == NULL || output_L == NULL || output_R == NULL)
+    if (left_input_buffer == NULL || right_input_buffer == NULL || left_output_buffer == NULL || right_output_buffer == NULL)
     {
         fprintf(stderr, "Error while allocating the buffers.\n");
         exit(1);
@@ -154,20 +135,22 @@ int main(int argc, char *argv[])
     display_header(&header);
 
     // how many iterations of the processing loop ?
-    unsigned int nb_lecture = (header.nb_block / (buffer_size / 2));
+    unsigned int nb_lecture = (header.nb_block / (BUFFER_SIZE / 2));
 
     // get the incomplete last buffer if needed
-    if (header.nb_block % (buffer_size / 2) > 0) nb_lecture += 1;
+    if (header.nb_block % (BUFFER_SIZE / 2) > 0)
+        nb_lecture += 1;
 
     // hold on just a second
     char choice[3] = {0};
     printf("Go ? (y/Y/n/N)\t");
     scanf("%c", choice);
-    if (choice[0] == 'n' || choice[0] == 'N') exit(1);
+    if (choice[0] == 'n' || choice[0] == 'N')
+        exit(1);
 
     printf("\n------------------------------------ Processing has started .....\n\n");
 
-    unsigned int offset = (buffer_size/2) * header.block_size;
+    unsigned int offset = (BUFFER_SIZE / 2) * header.block_size;
 
     size_t cumulative_read = 0, cumulative_write = 0;
 
@@ -178,11 +161,11 @@ int main(int argc, char *argv[])
 
         printf("------------------------------------ window n° %5u", i);
 
-        size_t bytes_to_read = fmin(buffer_size, remaining);
+        size_t bytes_to_read = fmin(BUFFER_SIZE, remaining);
         size_t count;
 
         // read data from disk
-        count = data_read(bytes_to_read, &header, input_L, input_R, input);
+        count = data_read(bytes_to_read, &header, left_input_buffer, right_input_buffer, input);
 
         if (count == -1)
         {
@@ -194,11 +177,10 @@ int main(int argc, char *argv[])
         cumulative_read += (count / 2);
 
         // apply fft + correction
-        fft(&buffer_size, input_L, input_R, output_L, output_R,
-            dft_mem_L, dft_mem_R, &transfer_function, level);
+        fft(BUFFER_SIZE, left_input_buffer, right_input_buffer, left_output_buffer, right_output_buffer, left_overlap_buffer, right_overlap_buffer, transfer_function, LISTENING_LEVEL);
 
         // write back P1 to disk
-        count = data_write(bytes_to_read, &header, output_L, output_R, output);
+        count = data_write(bytes_to_read, &header, left_output_buffer, right_output_buffer, output);
 
         if (count == -1)
         {
@@ -234,16 +216,16 @@ int main(int argc, char *argv[])
 
     // free the memory !
 
-    for (int i = 0; i < (2 * buffer_size); i++) free(transfer_function.data[i]);
+    deallocate_transfer_function(transfer_function);
 
-    free(input_L);
-    free(input_R);
+    free(left_input_buffer);
+    free(right_input_buffer);
 
-    free(dft_mem_L);
-    free(dft_mem_R);
+    free(left_overlap_buffer);
+    free(right_overlap_buffer);
 
-    free(output_L);
-    free(output_R);
+    free(left_output_buffer);
+    free(right_output_buffer);
 
     // close files
 

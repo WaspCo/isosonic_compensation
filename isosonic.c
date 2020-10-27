@@ -20,10 +20,6 @@
 #include "isosonic.h"
 #include "loudness.h"
 
-// Programme de calcul des courbes interpolé avec flat à 80dB SPL.
-// Création du tableau origin, puis calcul d'une interpolation catmulrom
-// Le programme rabote ensuite les courbes aux valeurs <0 ou >80
-// c_orig => curve_itrp => c_fltr => curve_flat => curve.c
 
 /** perform a Catmull-Rom spline interpolation using 4 points
  * @param p1 (struct point)
@@ -59,15 +55,16 @@ float linear(float x, float y, double t)
 
 /** Parse the isophonic curve file and craft the transfer function
  * @param isosonic_file (FILE*)
- * @param transfer_function to load into (struct transfer_function)
- * @param buffer_size (unsigned_int)
+ * @param transfer_function to load into (TransferFunction*)
+ * @param BUFFER_SIZE (const size_t)
  * @return 0 if ok, 0 else
  */
 uint8_t craft_transfer_function(
     FILE *isosonic_file,
-    struct transfer_function *transfer_function,
-    unsigned int *buffer_size)
+    TransferFunction *transfer_function,
+    const size_t BUFFER_SIZE)
 {
+
     int i = 0, j = 0;
     char b1[2] = {'\0'};
     char b2[20] = {'\0'};
@@ -122,7 +119,7 @@ uint8_t craft_transfer_function(
     }
 
     // convert 1/3octave to linear && buffer scaling
-    double q = 19980.0 / ((*buffer_size * 2) - 1);
+    double q = 19980.0 / ((BUFFER_SIZE * 2) - 1);
     double pre = 0.0;
     double n = 0.0;
     int k = 0, one = 0, two = 0;
@@ -298,6 +295,8 @@ uint8_t craft_transfer_function(
         transfer_function->metadata[j] = curve_raw.metadata[j];
     }
 
+    rewind(isosonic_file);
+
     return 0;
 }
 
@@ -376,7 +375,7 @@ FILE *process_isosonic_curve(void)
         for (i = 0; i < 31; i++) //Boucle de remplissage tableau data d'origin
         {
             if (nbc == 0)
-            { //Choix de la courbe
+            {
                 origin[nbc][i] = zero[i];
             }
             else if (nbc == 1)
@@ -411,11 +410,11 @@ FILE *process_isosonic_curve(void)
             {
                 origin[nbc][i] = c120[i];
             }
-            //printf("i=%d, nbc=%d, y=%lf\n", i, nbc, curve_origin[nbc][i]);     // Controle visuel
         }
     }
 
     FILE *curve_origin = NULL;
+
     curve_origin = fopen("curve/curve_origin.csv", "w");
 
     if (!curve_origin) return NULL;
@@ -458,6 +457,7 @@ FILE *process_isosonic_curve(void)
     }
 
     FILE *curve_itrp = NULL;
+
     curve_itrp = fopen("curve/curve_itrp.csv", "w");
 
     if (!curve_origin) return NULL;
@@ -504,6 +504,7 @@ FILE *process_isosonic_curve(void)
     }
 
     FILE *curve_flat = NULL;
+
     curve_flat = fopen("curve/curve_flat.csv", "w");
 
     if (!curve_origin) return NULL;
@@ -559,8 +560,9 @@ FILE *process_isosonic_curve(void)
     ////////////////////////////////////////////////////////////////////////////
     // Exportation des courbes
 
-    FILE *transfer_function = NULL;
-    transfer_function = fopen("curve/transfer_function.csv", "w");
+    FILE *isosonic_file = NULL;
+
+    isosonic_file = fopen("curve/transfer_function.csv", "w");
 
     if (!curve_origin) return NULL;
 
@@ -568,16 +570,18 @@ FILE *process_isosonic_curve(void)
     {
         for (nbcf = 0; nbcf < 90; nbcf++)
         {
-            fprintf(transfer_function, "%f,", curve_final.data[nbcf][i]); // Export .csv
+            fprintf(isosonic_file, "%f,", curve_final.data[nbcf][i]); // Export .csv
         }
-        fprintf(transfer_function, "\n");
+        fprintf(isosonic_file, "\n");
     }
 
     //Les metedatas de chaque courbe sont à la 91ème colonne
     for (nbcf = 0; nbcf < 90; nbcf++)
     {
-        fprintf(transfer_function, "%f,", curve_final.metadata[nbcf]);
+        fprintf(isosonic_file, "%f,", curve_final.metadata[nbcf]);
     }
 
-    return transfer_function;
+    rewind(isosonic_file);
+
+    return isosonic_file;
 }
