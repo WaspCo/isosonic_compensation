@@ -1,9 +1,16 @@
+/* @file loudness.c
+ * Allocation and de-allocation of the heap memory
+ *
+ * Auteurs:
+ * Victor Deleau
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 
+#include "isosonic.h"
 #include "allocation.h"
 #include "loudness.h"
 
@@ -22,57 +29,61 @@ int64_t *allocate_buffer(size_t size)
     return buffer;
 }
 
-/** Allocate a transfer_function struct and initialize it with zeros
- * @param buffer_size (size_t)
- * @param n number of transfer function contained (size_t)
- * @return the allocated transfer function (TransferFunction*)
+
+/** Allocate a list of transfer_function and initialize them with zeros
+ * @param NB_DATA_POINT (size_t const)
+ * @param NB_TRANSFER_FUNCTIONS of transfer functions to allocate(size_t const)
+ * @return the allocated list of transfer functions (TransferFunction[])
  */
-TransferFunction *allocate_transfer_function(
-    size_t buffer_size,
-    size_t nb_curve)
+TransferFunction **allocate_transfer_function(
+    size_t const NB_DATA_POINT,
+    size_t const NB_TRANSFER_FUNCTIONS)
 {
-    TransferFunction *transfer_function;
+    TransferFunction **transfer_functions;
 
-    transfer_function = (TransferFunction*)malloc(sizeof(TransferFunction));
+    size_t nb_bytes = sizeof(TransferFunction *) * NB_TRANSFER_FUNCTIONS;
 
-    size_t nb_bytes = (2 * buffer_size) * sizeof(float *);
+    transfer_functions = (TransferFunction**)malloc(nb_bytes);
 
-    transfer_function->data = (float **)malloc(nb_bytes);
+    size_t struct_bytes = sizeof(TransferFunction);
+    size_t data_bytes = sizeof(float) * NB_DATA_POINT;
 
-    nb_bytes = nb_curve * sizeof(float);
-
-    for (int i = 0; i < (2 * buffer_size); i++)
+    for (size_t i = 0; i < NB_TRANSFER_FUNCTIONS; i++)
     {
-        transfer_function->data[i] = (float *)malloc(nb_bytes);
-        memset(transfer_function->data[i], 0, nb_bytes);
+
+        transfer_functions[i] = (TransferFunction*)malloc(struct_bytes);
+
+        transfer_functions[i]->data = (float *)malloc(data_bytes);
+
+        memset(transfer_functions[i]->data, 0, data_bytes);
+
+        transfer_functions[i]->level_at_1000hz = 0;
     }
 
-    transfer_function->metadata = (float *)malloc(nb_bytes);
-    memset(transfer_function->metadata, 0, nb_bytes);
-
-    transfer_function->buffer_size = buffer_size;
-
-    transfer_function->nb_curve = nb_curve;
-
-    return transfer_function;
+    return transfer_functions;
 }
 
 /** De-allocate a transfer function
- * @param transfer_function (TransferFunction*)
+ * @param transfer_functions (TransferFunction[])
+ * @param NB_TRANSFER_FUNCTIONS of transfer functions in argument (size_t const)
  * @return 0 if ok, 1 otherwise
  */
-uint8_t deallocate_transfer_function(TransferFunction *transfer_function) {
+uint8_t deallocate_transfer_functions(
+    TransferFunction **transfer_functions,
+    size_t const NB_TRANSFER_FUNCTIONS)
+{
 
-    for (int i = 0; i < (2 * transfer_function->buffer_size); i++)
+    for (size_t i = 0; i < NB_TRANSFER_FUNCTIONS; i++)
     {
-        free(transfer_function->data[i]);
+        free(transfer_functions[i]->data);
+
+        free(transfer_functions[i]);
     }
 
-    free(transfer_function->metadata);
+    free(transfer_functions);
 
-    free(transfer_function);
-
-    if (transfer_function) {
+    if (transfer_functions)
+    {
         return 1;
     }
 

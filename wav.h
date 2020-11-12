@@ -29,19 +29,21 @@ typedef struct Header
     float duration_in_seconds;
 } Header;
 
-void display_header(Header *header);
+void display_wav_header(Header *header);
 
-uint8_t header_read(Header *header, FILE *input);
+uint8_t header_wav_read(Header *header, FILE *input);
 
-int data_read(size_t bytes_to_read,
+int data_wav_read(size_t bytes_to_read,
               Header *header,
               int64_t left_input_buffer[],
               int64_t right_input_buffer[],
               FILE *input_file);
 
-uint8_t header_write(Header *header, FILE *output);
+uint8_t header_wav_write(Header *header, FILE *output);
 
-int data_write(size_t bytes_to_write,
+uint8_t update_wav_header(FILE *file, Header *header);
+
+int data_wav_write(size_t bytes_to_write,
                Header *header,
                int64_t left_output_buffer[],
                int64_t right_output_buffer[],

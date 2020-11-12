@@ -55,39 +55,52 @@
   return dbfs;
 } */
 
-/** apply compensation to spectrum
- * @param BUFFER_SIZE (size_t)
- * @param left_input_spectrum (fftw_complex[])
- * @param right_input_spectrum (fftw_complex[])
- * @param left_output_spectrum (fftw_complex[])
- * @param right_output_spectrum (fftw_complex[])
- * @param transfer_function to apply (TransferFunction*)
- * @param LISTENING_LEVEL (const size_t)
+/** apply transfer function to spectrum in place
+ * @param spectrum (fftw_complex[])
+ * @param transfer_function to apply (const TransferFunction)
+ * @param NB_BINS (const size_t)
  * @return 0 if ok, 1 otherwise (uint8_t)
  */
-uint8_t loudness(
-    size_t BUFFER_SIZE,
-    fftw_complex left_input_spectrum[],
-    fftw_complex right_input_spectrum[],
-    fftw_complex left_output_spectrum[],
-    fftw_complex right_output_spectrum[],
-    TransferFunction *transfer_function,
-    const size_t LISTENING_LEVEL)
+uint8_t spectrum_product(
+    fftw_complex spectrum[],
+    const TransferFunction *transfer_function,
+    const size_t NB_BINS)
+{    
+
+    for (size_t i = 0; i < NB_BINS; i++)
+    {
+        spectrum[i][0] *= transfer_function->data[i];
+        spectrum[i][1] *= transfer_function->data[i];
+    }
+
+    return 0;
+}
+
+
+/** Find the right transfer fucntion to apply
+ * @param transfer_function to apply (TransferFunction**)
+ * @param LISTENING_LEVEL (const size_t)
+ * @return the index of the transfer function to apply (size_t)
+ */
+size_t get_curve_from_listening_level(
+    TransferFunction **transfer_functions,
+    size_t const LISTENING_LEVEL)
 {
+    size_t last = 55 - 1;
+    size_t first = 0;
+    size_t middle = (first + last) / 2;
+    size_t curve2apply = 0;
 
-    int last = 55 - 1;
-    int first = 0;
-    int middle = (first + last) / 2;
-    int curve2apply = 0;
+    float current_level = transfer_functions[middle]->level_at_1000hz + 0.5;
 
+    // binary search
     while (first <= last)
-    { // binary search of the right curve to apply
-
-        if (LISTENING_LEVEL > (transfer_function->metadata[middle] + 0.5))
+    { 
+        if (LISTENING_LEVEL > current_level)
         {
             first = middle + 1;
         }
-        else if (LISTENING_LEVEL == (transfer_function->metadata[middle] + 0.5))
+        else if (LISTENING_LEVEL == current_level)
         {
             break;
         }
@@ -96,26 +109,5 @@ uint8_t loudness(
         middle = (first + last) / 2;
     }
 
-    curve2apply = middle + 1;
-
-    int i = 0;
-    float to_apply = 0;
-
-    // apply correction to samples
-    for (i = 0; i < (BUFFER_SIZE / 2 + 1); i++)
-    {
-        // correction in dB SPL to linear scale
-        to_apply = transfer_function->data[i][curve2apply] * 8;
-        to_apply = pow(10, transfer_function->data[i][curve2apply] / 20);
-
-        // apply to left channel
-        left_output_spectrum[i][0] = left_input_spectrum[i][0] * to_apply;
-        right_output_spectrum[i][0] = right_input_spectrum[i][0] * to_apply;
-
-        // apply to right channel
-        left_output_spectrum[i][1] = left_input_spectrum[i][1] * to_apply;
-        right_output_spectrum[i][1] = right_input_spectrum[i][1] * to_apply;
-    }
-
-    return 0;
+    return middle + 1;
 }

@@ -138,29 +138,32 @@ long long maxint(size_t n)
 /** Display WAV file header information
  * @param header to display (struct header)
  */
-void display_header(Header *header)
+void display_wav_header(Header *header)
 {
+
+    printf("WAV file header\n");
+
     static const char encoding[][10] = {"? (0)", "PCM (1)", "? (2)", "? (3)", "? (4)", "? (5)", "A-Law (6)", "mu-law (7)"};
 
     static const unsigned nencoding = sizeof encoding / sizeof encoding[0];
 
-    printf("Encoding: %s\n", header->type_format < nencoding ? encoding[header->type_format] : "?");
+    printf(" Encoding: %s\n", header->type_format < nencoding ? encoding[header->type_format] : "?");
 
-    printf("Number of channels: %u\n", header->nb_channel);
+    printf(" Number of channels: %u\n", header->nb_channel);
 
-    printf("Sample rate: %u Hertz\n", header->sample_rate);
+    printf(" Sample rate: %u Hertz\n", header->sample_rate);
 
-    printf("Byte Rate: %u B/s, bit rate: %u b/s\n", header->byte_rate, header->byte_rate * 8);
+    printf(" Byte Rate: %u B/s, bit rate: %u b/s\n", header->byte_rate, header->byte_rate * 8);
 
-    printf("Sample block size: %u Bytes\n", header->block_size);
+    printf(" Sample block size: %u Bytes\n", header->block_size);
 
-    printf("Bits per sample: %u bits\n", header->bits_per_sample);
+    printf(" Bits per sample: %u bits\n", header->bits_per_sample);
 
-    display_size("Data file size", header->data_size);
+    display_size(" Data file size", header->data_size);
 
-    printf("Number of blocks: %lu\n", header->nb_block);
+    printf(" Number of blocks: %lu\n", header->nb_block);
 
-    display_duration("Approx. duration", header->duration_in_seconds);
+    display_duration(" Approx. duration", header->duration_in_seconds);
 }
 
 /** parse WAV file header
@@ -168,10 +171,10 @@ void display_header(Header *header)
  * @param input source file (FILE*)
  * @return 0 if an error occured, 1 otherwise (int)
  */
-uint8_t header_read(Header *header, FILE *input)
+uint8_t header_wav_read(Header *header, FILE *input)
 {
     // WAVE header structure
-    unsigned char buffer[4];
+    unsigned char buffer[4] = {0, 0, 0, 0};
 
     // RIFF format
     if (fread(buffer, 4, 1, input) != 1)
@@ -391,7 +394,7 @@ uint8_t header_read(Header *header, FILE *input)
  * @param header (struct header*)
  * @param output_file (FILE*)
  */
-uint8_t header_write(Header *header, FILE *output_file)
+uint8_t header_wav_write(Header *header, FILE *output_file)
 {
     unsigned char buffer[4];
 
@@ -439,6 +442,39 @@ uint8_t header_write(Header *header, FILE *output_file)
     return 0;
 }
 
+/** Update header of WAV file given header and file
+ * @param wav_file (FILE *)
+ * @param header (Header *)
+ * @return 0 if ok, 1 otherwise (uint8_t)
+ */
+uint8_t update_wav_header(FILE *wav_file, Header *header) {
+
+    // chunk size update (nb file bytes - 8)
+    
+    fseek(wav_file, 0L, SEEK_END);
+
+    int new_chunk_size = ftell(wav_file) - 8;
+
+    unsigned char buffer[4];
+    unsigned_to_buffer(new_chunk_size, buffer, 4);
+
+    fseek(wav_file, 4, SEEK_SET);
+    
+    fwrite(buffer, 4, 1, wav_file);
+
+    // sub chunk size update (nb bytes in data part)
+
+    int sub_chunk_size = new_chunk_size - 36 - header->info_len - header->extra_param_len;
+
+    unsigned_to_buffer(sub_chunk_size, buffer, 4);
+
+    fseek(wav_file, 40 + header->info_len + header->extra_param_len, SEEK_SET);
+
+    fwrite(buffer, 4, 1, wav_file);
+
+    return 0;
+}
+
 /** Read WAV file data block of samples
  * @param bytes_to_read (size_t)
  * @param left_input_buffer to read into (int64_t[])
@@ -446,7 +482,7 @@ uint8_t header_write(Header *header, FILE *output_file)
  * @param input_file to read from (FILE*)
  * @return number of bytes read (int)
  */
-int data_read(size_t bytes_to_read,
+int data_wav_read(size_t bytes_to_read,
               Header *header,
               int64_t left_input_buffer[],
               int64_t right_input_buffer[],
@@ -498,7 +534,7 @@ int data_read(size_t bytes_to_read,
  * @param output_file (FILE*)
  * @return number of bytes to write (int)
  */
-int data_write(size_t bytes_to_write,
+int data_wav_write(size_t bytes_to_write,
                Header *header,
                int64_t left_output_buffer[],
                int64_t right_output_buffer[],

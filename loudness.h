@@ -14,21 +14,19 @@
 
 struct transfer_function
 { // Contient le spectre de la réponse impulsionelle
-    float **data;
-    float *metadata;
-    size_t nb_curve;
-    size_t buffer_size;
-}; // Les metadatas sont le niveau d'origine du spectre à 1kH.
+    float *data;
+    float level_at_1000hz;
+};
 
 typedef struct transfer_function TransferFunction;
 
-uint8_t loudness(
-    const size_t BUFFER_SIZE,
-    fftw_complex left_input_spectrum[],
-    fftw_complex right_input_spectrum[],
-    fftw_complex left_output_spectrum[],
-    fftw_complex right_output_spectrum[],
-    TransferFunction *transfer_function,
-    const size_t LISTENING_LEVEL);
+uint8_t spectrum_product(
+    fftw_complex spectrum[],
+    const TransferFunction *transfer_function,
+    const size_t NB_BINS);
+
+size_t get_curve_from_listening_level(
+    TransferFunction **transfer_functions,
+    size_t const LISTENING_LEVEL);
 
 #endif // LOUDNESS_H 1

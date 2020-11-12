@@ -20,7 +20,7 @@
 #include <fftw3.h>
 
 #include "wav.h"
-#include "fft.h"
+#include "dft.h"
 #include "isosonic.h"
 #include "loudness.h"
 #include "allocation.h"
@@ -31,12 +31,13 @@ int main(int argc, char *argv[])
 {
     clock_t begin = clock();
 
-    printf("---------------------------------------------------------------------\n");
-    printf("------------------------------------ isosonic compensation ----------\n");
-    printf("---------------------------------------------------------------------\n\n");
+    printf("---------------------------------------------------------------\n");
+    printf("------------------------------ isosonic compensation ----------\n");
+    printf("---------------------------------------------------------------\n");
+    printf("\n");
 
     ////////////////////////////////////////////////////////////////////////////
-    // 1) I/O //////////////////////////////////////////////////////////////////
+    // 1) setup ////////////////////////////////////////////////////////////////
 
     if (argc < 3)
     {
@@ -44,45 +45,42 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    FILE *input = fopen(argv[1], "r");
-    if (!input)
+    FILE *input_file = fopen(argv[1], "r");
+    if (!input_file)
     {
         fprintf(stderr, "Error while opening the input file. (%s)\n", argv[1]);
         exit(1);
     }
 
-    FILE *output = fopen(argv[2], "w");
-    if (!output)
+    FILE *output_file = fopen(argv[2], "w");
+    if (!output_file)
     {
         fprintf(stderr, "Error while allocating the output file. (%s)\n", argv[2]);
         exit(1);
     }
 
-    // read header of input .wav file
-    Header header;
-    header_read(&header, input);
+    Header input_file_header;
+    header_wav_read(&input_file_header, input_file);
 
-    
     // get the specified buffer size
+
     int b = 0;
-    if ((argc>3 && sscanf(argv[3], "%u", &b) != 1) || (b < 8) || (b > 1048576))
+    if ((argc > 3 && sscanf(argv[3], "%u", &b) != 1) || (b < 8) || (b > 1048576))
     {
         fprintf(stderr, "Incorrect buffer size (%s) (8 <= buffer_size <= 1048576)\n", argv[3]);
         exit(1);
     }
     const size_t BUFFER_SIZE = b;
 
-    // get the listening level
     b = 0;
-    ;
-    if ((argc>3 && sscanf(argv[4], "%u", &b) != 1) || (b <= 0) || (b > 80))
+    if ((argc > 3 && sscanf(argv[4], "%u", &b) != 1) || (b <= 0) || (b > 80))
     {
         fprintf(stderr, "Incorrect listening level (%s)\n (0 < listening_level <= 80)\n", argv[4]);
         exit(1);
     }
     const size_t LISTENING_LEVEL = b;
 
-    // allocate isosonic curves on the heap and load
+    // read isosonic curves and make transfer functions
 
     FILE *isosonic_file = NULL;
     isosonic_file = fopen("curve_processed.csv", "r");
@@ -98,144 +96,161 @@ int main(int argc, char *argv[])
         }
     }
 
-    TransferFunction *transfer_function;
-
-    transfer_function = allocate_transfer_function(BUFFER_SIZE, NB_CURVE);
-
-    if (!transfer_function) exit(1);
-
-    craft_transfer_function(isosonic_file, transfer_function, BUFFER_SIZE);
-
     ////////////////////////////////////////////////////////////////////////////
-    // 2) working buffers allocation ///////////////////////////////////////////
+    // 2) memory allocation ////////////////////////////////////////////////////
 
-    int64_t *left_input_buffer = allocate_buffer(BUFFER_SIZE);
-    int64_t *right_input_buffer = allocate_buffer(BUFFER_SIZE);
+    int64_t *L_input_time = allocate_buffer(BUFFER_SIZE);
+    int64_t *R_input_time = allocate_buffer(BUFFER_SIZE);
 
-    int64_t *left_output_buffer = allocate_buffer(BUFFER_SIZE);
-    int64_t *right_output_buffer = allocate_buffer(BUFFER_SIZE);
+    float *L_overlap_time = malloc(sizeof(float) * (BUFFER_SIZE));
+    float *R_overlap_time = malloc(sizeof(float) * (BUFFER_SIZE));
 
-    // temp storage for P2
-    float *left_overlap_buffer = malloc(sizeof(float) * (BUFFER_SIZE));
-    float *right_overlap_buffer = malloc(sizeof(float) * (BUFFER_SIZE));
+    const size_t NB_BINS = (BUFFER_SIZE / 2) + 1;
 
-    if (left_input_buffer == NULL || right_input_buffer == NULL || left_output_buffer == NULL || right_output_buffer == NULL)
+    fftw_complex *R_spectrum = fftw_malloc(sizeof(fftw_complex) * NB_BINS);
+    fftw_complex *L_spectrum = fftw_malloc(sizeof(fftw_complex) * NB_BINS);
+
+    int64_t *L_output_time = allocate_buffer(BUFFER_SIZE);
+    int64_t *R_output_time = allocate_buffer(BUFFER_SIZE);
+
+    if (L_input_time == NULL || R_input_time == NULL || L_output_time == NULL || R_output_time == NULL || L_overlap_time == NULL || R_overlap_time == NULL || R_spectrum == NULL || L_spectrum == NULL)
     {
         fprintf(stderr, "Error while allocating the buffers.\n");
         exit(1);
     }
 
+    TransferFunction **transfer_functions = NULL;
+    transfer_functions = allocate_transfer_function(BUFFER_SIZE * 2, NB_CURVE);
+
+    if (!transfer_functions)
+    {
+        fprintf(stderr, "Error while allocating the transfer functions.\n");
+        exit(1);
+    }
+
+    craft_transfer_functions(isosonic_file, transfer_functions, BUFFER_SIZE);
+
     ////////////////////////////////////////////////////////////////////////////
-    // 3) parsing / processing /////////////////////////////////////////////////
+    // 3) signal processing ////////////////////////////////////////////////////
 
     // write the header of the wav output file
-    header_write(&header, output);
+    header_wav_write(&input_file_header, output_file);
 
     // display it for info sake
-    display_header(&header);
+    display_wav_header(&input_file_header);
 
     // how many iterations of the processing loop ?
-    unsigned int nb_lecture = (header.nb_block / (BUFFER_SIZE / 2));
+    size_t nb_lecture = (input_file_header.nb_block / (BUFFER_SIZE / 2));
 
     // get the incomplete last buffer if needed
-    if (header.nb_block % (BUFFER_SIZE / 2) > 0)
+    if (input_file_header.nb_block % (BUFFER_SIZE / 2) > 0)
         nb_lecture += 1;
 
     // hold on just a second
     char choice[3] = {0};
-    printf("Go ? (y/Y/n/N)\t");
+    printf("Apply compensation ? (y/Y/n/N)\t");
     scanf("%c", choice);
     if (choice[0] == 'n' || choice[0] == 'N')
         exit(1);
 
-    printf("\n------------------------------------ Processing has started .....\n\n");
+    printf("\n------------------------------ Processing has started .....\n\n");
 
-    unsigned int offset = (BUFFER_SIZE / 2) * header.block_size;
+    size_t offset = (BUFFER_SIZE / 2) * input_file_header.block_size;
 
-    size_t cumulative_read = 0, cumulative_write = 0;
+    size_t cumulative_read = 0;
+    size_t total_samples_read = 0;
 
-    // main processing loop
-    for (unsigned int i = 0; i < (nb_lecture); i++)
+    size_t curve2apply = get_curve_from_listening_level(
+        transfer_functions,
+        LISTENING_LEVEL);
+
+    TransferFunction *transfer_function = transfer_functions[curve2apply];
+
+    allocate_dft(BUFFER_SIZE); // required before using dft_forward/dft_backward
+
+    for (size_t i = 0; i < (nb_lecture); i++)
     {
-        size_t remaining = (header.nb_block) - (cumulative_read);
+        size_t remaining_samples = (input_file_header.nb_block) - (cumulative_read);
 
         printf("------------------------------------ window n° %5u", i);
 
-        size_t bytes_to_read = fmin(BUFFER_SIZE, remaining);
-        size_t count;
+        size_t samples_to_read = fmin(BUFFER_SIZE, remaining_samples);
+        size_t block_samples_read;
 
-        // read data from disk
-        count = data_read(bytes_to_read, &header, left_input_buffer, right_input_buffer, input);
+        block_samples_read = data_wav_read(
+            samples_to_read,
+            &input_file_header,
+            L_input_time,
+            R_input_time,
+            input_file);
 
-        if (count == -1)
+        if (block_samples_read == -1)
         {
             fprintf(stderr, "Error while reading data from input WAV file.\n");
             exit(1);
         }
 
-        printf(" (%zu/%zu) -----\n", count, bytes_to_read);
-        cumulative_read += (count / 2);
+        printf(" (%d/%d) -----\n", block_samples_read, samples_to_read);
+        cumulative_read += (block_samples_read / 2);
 
-        // apply fft + correction
-        fft(BUFFER_SIZE, left_input_buffer, right_input_buffer, left_output_buffer, right_output_buffer, left_overlap_buffer, right_overlap_buffer, transfer_function, LISTENING_LEVEL);
+        dft_forward(R_input_time, R_spectrum, BUFFER_SIZE, NB_BINS);
+        dft_forward(L_input_time, L_spectrum, BUFFER_SIZE, NB_BINS);
 
-        // write back P1 to disk
-        count = data_write(bytes_to_read, &header, left_output_buffer, right_output_buffer, output);
+        spectrum_product(R_spectrum, transfer_function, NB_BINS);
+        spectrum_product(L_spectrum, transfer_function, NB_BINS);
 
-        if (count == -1)
+        dft_backward(R_spectrum, R_output_time, BUFFER_SIZE, NB_BINS);
+        dft_backward(L_spectrum, L_output_time, BUFFER_SIZE, NB_BINS);
+
+        block_samples_read = data_wav_write(
+            samples_to_read,
+            &input_file_header,
+            L_output_time,
+            R_output_time,
+            output_file);
+
+        if (block_samples_read == -1)
         {
             fprintf(stderr, "Error while writing data to output WAV file.\n");
             exit(1);
         }
 
-        cumulative_write += (count / 2);
+        total_samples_read += (block_samples_read / 2);
 
-        // overlapp-add of P2 (effectively rewind pointer of "offset" bytes)
-        fseek(input, ftell(input) - offset, SEEK_SET);
+        // overlapp-add (rewind pointer of "offset" bytes)
+        fseek(input_file, ftell(input_file) - offset, SEEK_SET);
     }
 
     printf("Alt er vel (^_^)\n");
-    printf("Sample read: %zu\n", cumulative_read);
-    printf("Sample writen: %zu\n", cumulative_write);
 
-    // Update the output file header with up-to-date information about the file
+    update_wav_header(output_file, &input_file_header);
 
-    // chunk size update (nb file bytes - 8)
-    unsigned char buffer[4];
-    fseek(output, 0L, SEEK_END);
-    int new_chunk_size = ftell(output) - 8;
-    unsigned_to_buffer(new_chunk_size, buffer, 4);
-    fseek(output, 4, SEEK_SET);
-    fwrite(buffer, 4, 1, output);
+    ////////////////////////////////////////////////////////////////////////////
+    // 3) cleanup //////////////////////////////////////////////////////////////
 
-    // sub chunk size update (nb bytes in data part)
-    int new_sub_chunk_size2 = new_chunk_size - 36 - (header.info_len) - (header.extra_param_len);
-    unsigned_to_buffer(new_sub_chunk_size2, buffer, 4);
-    fseek(output, 40 + (header.info_len) + (header.extra_param_len), SEEK_SET);
-    fwrite(buffer, 4, 1, output);
+    deallocate_dft();
 
-    // free the memory !
+    deallocate_transfer_functions(transfer_functions, NB_CURVE);
 
-    deallocate_transfer_function(transfer_function);
+    free(L_input_time);
+    free(R_input_time);
 
-    free(left_input_buffer);
-    free(right_input_buffer);
+    free(L_overlap_time);
+    free(R_overlap_time);
 
-    free(left_overlap_buffer);
-    free(right_overlap_buffer);
+    free(L_spectrum);
+    free(R_spectrum);
 
-    free(left_output_buffer);
-    free(right_output_buffer);
+    free(L_output_time);
+    free(R_output_time);
 
-    // close files
-
-    if (fclose(input))
+    if (fclose(input_file))
     {
         printf("Error while closing the input file.");
         exit(1);
     }
 
-    if (fclose(output))
+    if (fclose(output_file))
     {
         printf("Error while closing the output file.");
         exit(1);
